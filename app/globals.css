@@ -1,26 +1,66 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --hugella-navy: #082b49;
+  --hugella-navy-deep: #061f35;
+  --hugella-navy-secondary: #0c3a5d;
+  --hugella-gold: #d6a52a;
+  --hugella-gold-light: #e5b94a;
+  --hugella-gold-dark: #b8891c;
+  --hugella-white: #ffffff;
+  --hugella-bg: #f5f7f9;
+  --hugella-muted: #6b7c93;
+  --hugella-border: #dce3ea;
+  --hugella-radius-sm: 4px;
+  --hugella-radius-md: 5px;
+  --hugella-radius-card: 6px;
+
+  /* Existing semantic aliases retained to avoid changing application logic. */
+  --canvas: var(--hugella-bg);
+  --ink: var(--hugella-navy-deep);
+  --muted: var(--hugella-muted);
+  --navy: var(--hugella-navy);
+  --navy-soft: var(--hugella-navy-secondary);
+  --background: var(--hugella-bg);
+  --foreground: var(--hugella-navy-deep);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "Courier New", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* { box-sizing: border-box; }
+html { background: var(--hugella-bg); }
+body { margin: 0; background: var(--hugella-bg); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+
+.hugella-logo { display: block; width: auto; max-width: 100%; height: auto; object-fit: contain; }
+
+.credit-card::after {
+  content: "";
+  position: absolute;
+  width: 22rem;
+  height: 22rem;
+  right: -7rem;
+  top: -13rem;
+  border-radius: 999px;
+  border: 4rem solid rgb(214 165 42 / 0.055);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.detail-label { font-size: 0.78rem; color: rgb(255 255 255 / 0.56); }
+.detail-value { margin-top: 0.28rem; font-size: 0.95rem; font-weight: 650; }
+.section-kicker { margin-bottom: 0.35rem; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--hugella-gold-dark); }
+.field-label { display: block; margin-bottom: 0.5rem; font-size: 0.85rem; font-weight: 700; color: var(--ink); }
+.field-control { width: 100%; min-height: 3.25rem; border: 1px solid var(--hugella-border); border-radius: var(--hugella-radius-sm); background: var(--hugella-white); padding: 0.75rem 1rem; color: var(--ink); outline: none; transition: border-color .2s, box-shadow .2s; }
+.field-control--search { padding-left: 3.25rem; }
+.field-control--currency { padding-left: 2.75rem; }
+.field-control:focus { border-color: var(--hugella-gold); box-shadow: 0 0 0 3px rgb(214 165 42 / 0.14); }
+
+@media (min-width: 640px) {
+  .detail-label { font-size: 0.85rem; }
+  .detail-value { font-size: 1.05rem; }
 }
