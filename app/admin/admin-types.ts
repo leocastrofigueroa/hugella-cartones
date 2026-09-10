@@ -25,6 +25,18 @@ export type PaymentInput = {
   p_observaciones: string | null;
 };
 
+export type PaymentHistoryItem = {
+  pago_id: string;
+  fecha_pago: string;
+  importe: number | string;
+  medio_pago: string;
+  cuotas_aplicadas: number;
+  remanente: number | string;
+  observaciones: string | null;
+  origen: string | null;
+  created_at: string;
+};
+
 export const money = new Intl.NumberFormat("es-AR", {
   style: "currency", currency: "ARS", maximumFractionDigits: 2,
 });

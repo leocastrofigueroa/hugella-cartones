@@ -9,7 +9,8 @@ import CreditSearch from "./credit-search";
 import CreditResults from "./credit-results";
 import CreditDetail from "./credit-detail";
 import PaymentForm from "./payment-form";
-import { focusStyle, money, type Credit, type PaymentInput, type PaymentResult } from "./admin-types";
+import PaymentHistory from "./payment-history";
+import { focusStyle, money, type Credit, type PaymentHistoryItem, type PaymentInput, type PaymentResult } from "./admin-types";
 
 type SearchStatus = "idle" | "loading" | "done" | "error";
 
@@ -25,10 +26,32 @@ export default function AdminDashboard({ email }: { email: string }) {
   const [paymentError, setPaymentError] = useState("");
   const [success, setSuccess] = useState("");
   const [refreshError, setRefreshError] = useState("");
+  const [history, setHistory] = useState<PaymentHistoryItem[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [historyError, setHistoryError] = useState("");
   const [formVersion, setFormVersion] = useState(0);
   // Synchronous lock covers searches, payment submission, and its refresh.
   const busy = useRef(false);
+  const historyRequest = useRef(0);
   const disabled = searchStatus === "loading" || submitting;
+
+  async function loadPaymentHistory(creditId: string) {
+    const requestId = ++historyRequest.current;
+    setHistory([]);
+    setHistoryError("");
+    setHistoryStatus("loading");
+    try {
+      const { data, error } = await createClient().rpc("obtener_historial_pagos_admin", { p_credito_id: creditId });
+      if (error || !Array.isArray(data)) throw new Error("History request failed");
+      if (requestId !== historyRequest.current) return;
+      setHistory(data as PaymentHistoryItem[]);
+      setHistoryStatus("success");
+    } catch {
+      if (requestId !== historyRequest.current) return;
+      setHistoryError("No se pudo consultar el historial de pagos. Intentá nuevamente.");
+      setHistoryStatus("error");
+    }
+  }
 
   async function searchCredits() {
     if (busy.current) return;
@@ -39,6 +62,10 @@ export default function AdminDashboard({ email }: { email: string }) {
     setPaymentError("");
     setSuccess("");
     setRefreshError("");
+    historyRequest.current += 1;
+    setHistory([]);
+    setHistoryStatus("idle");
+    setHistoryError("");
     if (!normalized) {
       setSearchStatus("idle");
       return;
@@ -67,9 +94,13 @@ export default function AdminDashboard({ email }: { email: string }) {
   function selectCredit(credit: Credit) {
     if (busy.current || selected?.credito_id === credit.credito_id) return;
     setSelected(credit);
+    setHistory([]);
+    setHistoryError("");
+    setHistoryStatus("idle");
     setPaymentError("");
     setSuccess("");
     setRefreshError("");
+    void loadPaymentHistory(credit.credito_id);
   }
 
   async function handlePayment(input: PaymentInput) {
@@ -111,8 +142,12 @@ export default function AdminDashboard({ email }: { email: string }) {
         if (!updated) throw new Error("Credit missing from refresh");
         setSelected(updated);
         setResults((current) => current.map((item) => item.credito_id === updated.credito_id ? updated : item));
+        await loadPaymentHistory(updated.credito_id);
       } catch {
+        historyRequest.current += 1;
         setSelected(null);
+        setHistory([]);
+        setHistoryStatus("idle");
         setResults([]);
         setSearchStatus("idle");
         setRefreshError("El pago ya fue registrado, pero no pudimos actualizar la ficha. Volvé a buscar el crédito para ver sus datos actuales. No vuelvas a registrar este pago.");
@@ -175,6 +210,7 @@ export default function AdminDashboard({ email }: { email: string }) {
             <div className="grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-2">
               <CreditDetail credit={selected} />
               <PaymentForm key={`${selected.credito_id}-${formVersion}`} disabled={submitting} refreshing={refreshing} onPayment={handlePayment} />
+              <div className="xl:col-span-2"><PaymentHistory status={historyStatus} payments={history} error={historyError} /></div>
             </div>
           )}
         </div>
