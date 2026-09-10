@@ -1,3 +1,4 @@
+import CreditStatus from "../../components/credit-status";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
@@ -74,6 +75,9 @@ export default async function PublicCreditPage({ params }: PageProps<"/carton/[t
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      global: {
+        fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+      },
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -91,9 +95,7 @@ export default async function PublicCreditPage({ params }: PageProps<"/carton/[t
   const progress = credit.cantidad_cuotas > 0
     ? Math.min(100, Math.max(0, (credit.cuotas_pagadas / credit.cantidad_cuotas) * 100))
     : 0;
-  const statusStyle = credit.estado === "ATRASADO"
-    ? "bg-white/10 text-white ring-white/20"
-    : "bg-[var(--hugella-gold)] text-[var(--hugella-navy-deep)] ring-[var(--hugella-gold-light)]";
+
 
   return (
     <main className="min-h-screen bg-[var(--canvas)] text-[var(--ink)]">
@@ -112,7 +114,7 @@ export default async function PublicCreditPage({ params }: PageProps<"/carton/[t
         <section className="credit-card relative overflow-hidden rounded-[var(--hugella-radius-card)] bg-[var(--hugella-navy)] p-6 text-white shadow-[0_3px_10px_rgb(6_31_53/0.08)] sm:p-9">
           <div className="relative z-10 grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
             <div>
-              <div className="mb-8 flex items-start justify-between gap-4"><div><p className="text-sm text-white/55">Producto</p><h2 className="mt-1 text-xl font-semibold sm:text-2xl">{credit.producto}</h2></div><span className={`rounded-[var(--hugella-radius-sm)] px-3 py-1.5 text-sm font-bold uppercase ring-1 ${statusStyle}`}>{credit.estado}</span></div>
+              <div className="mb-8 flex items-start justify-between gap-4"><div><p className="text-sm text-white/55">Producto</p><h2 className="mt-1 text-xl font-semibold sm:text-2xl">{credit.producto}</h2></div><CreditStatus status={credit.estado} /></div>
               <p className="text-sm text-white/55">Cuota diaria</p><p className="mt-1 text-4xl font-bold tracking-tight text-[var(--hugella-gold-light)] sm:text-5xl">{money.format(Number(credit.importe_cuota))}</p>
               <div className="mt-7"><div className="mb-2 flex justify-between text-sm"><span className="text-white/65">Progreso del plan</span><span className="font-semibold">{credit.cuotas_pagadas} de {credit.cantidad_cuotas} cuotas</span></div><div className="h-2 overflow-hidden rounded-[2px] bg-white/10"><div className="h-full rounded-[2px] bg-[linear-gradient(90deg,var(--hugella-gold-dark),var(--hugella-gold-light))]" style={{ width: `${progress}%` }} /></div></div>
             </div>

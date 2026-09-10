@@ -1,106 +1,133 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
+import styles from "./admin.module.css";
+import CreditSearch from "./credit-search";
+import CreditResults from "./credit-results";
+import CreditDetail from "./credit-detail";
+import PaymentForm from "./payment-form";
+import { focusStyle, money, type Credit, type PaymentInput, type PaymentResult } from "./admin-types";
 
-type Credit = {
-  credito_id: string;
-  nombre_cliente: string;
-  codigo_credito: string;
-  producto: string;
-  importe_cuota: number | string;
-  cantidad_cuotas: number;
-  cuotas_pagadas: number;
-  cuotas_pendientes: number;
-  estado: string;
-};
-
-type PaymentResult = {
-  pago_id: string;
-  cuotas_aplicadas: number;
-  remanente: number | string;
-  cuotas_pagadas: number;
-  cuotas_pendientes: number;
-};
-
-const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
+type SearchStatus = "idle" | "loading" | "done" | "error";
 
 export default function AdminDashboard({ email }: { email: string }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Credit[]>([]);
   const [selected, setSelected] = useState<Credit | null>(null);
-  const [searching, setSearching] = useState(false);
+  const [searchStatus, setSearchStatus] = useState<SearchStatus>("idle");
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [refreshError, setRefreshError] = useState("");
+  const [formVersion, setFormVersion] = useState(0);
+  // Synchronous lock covers searches, payment submission, and its refresh.
+  const busy = useRef(false);
+  const disabled = searchStatus === "loading" || submitting;
 
-  async function searchCredits(searchTerm: string, selectId?: string) {
-    const normalized = searchTerm.trim();
+  async function searchCredits() {
+    if (busy.current) return;
+    const normalized = query.trim();
+    setSelected(null);
+    setResults([]);
+    setSearchError("");
+    setPaymentError("");
+    setSuccess("");
+    setRefreshError("");
     if (!normalized) {
-      setResults([]);
-      setSelected(null);
+      setSearchStatus("idle");
       return;
     }
 
-    setSearching(true);
-    setMessage(null);
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("buscar_creditos_admin", { p_busqueda: normalized });
-    setSearching(false);
-
-    if (error) {
-      setResults([]);
-      setMessage({ type: "error", text: error.code === "42501" ? "Tu cuenta no tiene permisos de administración." : "No se pudo realizar la búsqueda." });
-      return;
+    busy.current = true;
+    setSearchStatus("loading");
+    try {
+      const { data, error } = await createClient().rpc("buscar_creditos_admin", { p_busqueda: normalized });
+      if (error) {
+        setSearchError(error.code === "42501" ? "Tu cuenta no tiene permisos de administración." : "No se pudo realizar la búsqueda. Intentá nuevamente.");
+        setSearchStatus("error");
+        return;
+      }
+      if (data !== null && !Array.isArray(data)) throw new Error("Invalid search response");
+      setResults((data ?? []) as Credit[]);
+      setSearchStatus("done");
+    } catch {
+      setSearchError("No se pudo realizar la búsqueda. Revisá tu conexión e intentá nuevamente.");
+      setSearchStatus("error");
+    } finally {
+      busy.current = false;
     }
-
-    const credits = (data ?? []) as Credit[];
-    setResults(credits);
-    if (selectId) setSelected(credits.find((credit) => credit.credito_id === selectId) ?? null);
   }
 
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await searchCredits(query);
+  function selectCredit(credit: Credit) {
+    if (busy.current || selected?.credito_id === credit.credito_id) return;
+    setSelected(credit);
+    setPaymentError("");
+    setSuccess("");
+    setRefreshError("");
   }
 
-  async function handlePayment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selected) return;
-
+  async function handlePayment(input: PaymentInput) {
+    if (busy.current || !selected) return;
+    const credit = selected;
+    busy.current = true;
     setSubmitting(true);
-    setMessage(null);
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("registrar_pago_admin", {
-      p_credito_id: selected.credito_id,
-      p_fecha_pago: String(form.get("date") ?? ""),
-      p_importe: Number(form.get("amount")),
-      p_medio_pago: String(form.get("method") ?? ""),
-      p_observaciones: String(form.get("notes") ?? "").trim() || null,
-    });
-    setSubmitting(false);
+    setPaymentError("");
+    setSuccess("");
+    setRefreshError("");
 
-    if (error) {
-      setMessage({ type: "error", text: error.message || "No se pudo registrar el pago." });
-      return;
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("registrar_pago_admin", {
+        p_credito_id: credit.credito_id,
+        p_fecha_pago: input.p_fecha_pago,
+        p_importe: input.p_importe,
+        p_medio_pago: input.p_medio_pago,
+        p_observaciones: input.p_observaciones,
+      });
+      if (error) {
+        setPaymentError("No se pudo registrar el pago. Revisá los datos ingresados y los permisos de tu cuenta.");
+        return;
+      }
+      const payment = (Array.isArray(data) ? data[0] : undefined) as PaymentResult | undefined;
+      if (!payment) {
+        setPaymentError("No recibimos la confirmación del pago. Verificá si se registró antes de volver a enviarlo.");
+        return;
+      }
+
+      setSuccess(`Pago registrado para ${credit.codigo_credito}. Se aplicaron ${payment.cuotas_aplicadas} cuota${payment.cuotas_aplicadas === 1 ? "" : "s"} y el remanente acumulado es ${money.format(Number(payment.remanente))}.`);
+      setFormVersion((version) => version + 1);
+      setRefreshing(true);
+      // Refresh separately: it must never erase a confirmed payment message.
+      try {
+        const { data: refreshed, error: refreshFailure } = await supabase.rpc("buscar_creditos_admin", { p_busqueda: credit.codigo_credito });
+        if (refreshFailure || !Array.isArray(refreshed)) throw new Error("Credit refresh failed");
+        const updated = (refreshed as Credit[]).find((item) => item.credito_id === credit.credito_id);
+        if (!updated) throw new Error("Credit missing from refresh");
+        setSelected(updated);
+        setResults((current) => current.map((item) => item.credito_id === updated.credito_id ? updated : item));
+      } catch {
+        setSelected(null);
+        setResults([]);
+        setSearchStatus("idle");
+        setRefreshError("El pago ya fue registrado, pero no pudimos actualizar la ficha. Volvé a buscar el crédito para ver sus datos actuales. No vuelvas a registrar este pago.");
+      }
+    } catch {
+      setPaymentError("Se interrumpió la comunicación al registrar el pago. Verificá si se registró antes de volver a enviarlo.");
+    } finally {
+      setRefreshing(false);
+      setSubmitting(false);
+      busy.current = false;
     }
-
-    const payment = ((data ?? []) as PaymentResult[])[0];
-    if (!payment) {
-      setMessage({ type: "error", text: "Supabase no devolvió el resultado del pago." });
-      return;
-    }
-
-    setMessage({ type: "success", text: `Pago registrado. Se aplicaron ${payment.cuotas_aplicadas} cuota${payment.cuotas_aplicadas === 1 ? "" : "s"} y el remanente acumulado es ${money.format(Number(payment.remanente))}.` });
-    formElement.reset();
-    await searchCredits(selected.codigo_credito, selected.credito_id);
   }
 
   async function signOut() {
+    if (busy.current) return;
     const supabase = createClient();
     await supabase.auth.signOut();
     router.replace("/admin/login");
@@ -108,28 +135,48 @@ export default function AdminDashboard({ email }: { email: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--canvas)] text-[var(--ink)]">
-      <aside className="bg-[var(--hugella-navy-deep)] text-white lg:fixed lg:inset-y-0 lg:w-64">
-        <div className="flex h-full items-center justify-between px-5 py-4 lg:flex-col lg:items-stretch lg:px-6 lg:py-8">
-          <Image src="/hugella-logo.png" alt="HUGELLA Equipamiento Comercial" width={2172} height={724} priority className="hugella-logo w-[155px] lg:w-[195px]" />
-          <nav className="hidden space-y-2 lg:block"><span className="block rounded-[var(--hugella-radius-sm)] border-l-2 border-[var(--hugella-gold)] bg-white/6 px-4 py-3 text-sm font-semibold text-[var(--hugella-gold-light)]">Registrar pago</span><button type="button" onClick={signOut} className="w-full rounded-[var(--hugella-radius-sm)] px-4 py-3 text-left text-sm font-medium text-white/60 transition hover:bg-white/5 hover:text-white">Cerrar sesión</button></nav>
-          <span className="hidden truncate text-xs text-white/35 lg:block">{email}</span><button type="button" onClick={signOut} className="rounded-[var(--hugella-radius-sm)] border border-[var(--hugella-gold)]/50 px-3 py-2 text-sm font-semibold text-[var(--hugella-gold-light)] lg:hidden">Cerrar sesión</button>
+    <main className={`${styles.root} min-h-screen bg-[var(--canvas)] text-[var(--ink)]`}>
+      <header aria-label="Cuenta de administración" className="bg-[var(--hugella-navy-deep)] text-white">
+        <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <div className="w-[clamp(9rem,45vw,13.75rem)] min-w-0 max-w-full">
+            <Image src="/hugella-logo.png" alt="HUGELLA Equipamiento Comercial" width={2172} height={724} priority className="block h-auto w-full max-w-full object-contain" />
+          </div>
+          <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-4">
+            <p className="hidden min-w-0 max-w-xs text-right text-xs text-white/75 [overflow-wrap:anywhere] lg:block">{email}</p>
+            <button type="button" disabled={disabled} onClick={signOut} className={`min-h-11 max-w-full rounded-[var(--hugella-radius-sm)] border border-[var(--hugella-gold)]/60 px-4 py-2 whitespace-normal text-sm font-semibold text-[var(--hugella-gold-light)] transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 ${focusStyle}`}>Cerrar sesión</button>
+          </div>
         </div>
-      </aside>
+      </header>
 
-      <div className="lg:ml-64">
-        <header className="border-b border-slate-200 bg-white px-5 py-5 sm:px-8 lg:px-10"><div className="mx-auto max-w-6xl"><p className="section-kicker">Gestión de cobranzas</p><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Registrar un pago</h1></div></header>
-        <div className="mx-auto max-w-6xl px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
-          <form onSubmit={handleSearch} className="max-w-2xl"><label className="field-label" htmlFor="search">Buscar cliente o crédito</label><div className="flex gap-3"><div className="relative flex-1"><svg aria-hidden="true" viewBox="0 0 24 24" className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="search" value={query} onChange={(event) => setQuery(event.target.value)} className="field-control field-control--search" placeholder="Nombre del cliente o código" /></div><button disabled={searching} className="rounded-[var(--hugella-radius-sm)] bg-[var(--hugella-navy)] px-5 font-bold text-white transition hover:bg-[var(--hugella-navy-secondary)] disabled:opacity-60">{searching ? "Buscando…" : "Buscar"}</button></div></form>
+      <div className="min-w-0">
+        <header className="border-b border-[var(--hugella-border)] bg-white px-5 py-6 sm:px-8">
+          <div className="mx-auto max-w-6xl"><p className="section-kicker">Gestión de cobranzas</p><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Créditos y pagos</h1><p className="mt-2 text-sm text-[var(--hugella-navy-secondary)]">Buscá un crédito, revisá sus cuotas y registrá un pago.</p></div>
+        </header>
+        <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 sm:px-8 sm:py-8">
+          <section aria-label="Búsqueda de créditos" className="rounded-[var(--hugella-radius-card)] border border-[var(--hugella-border)] bg-white p-5 sm:p-6">
+            <CreditSearch query={query} onChange={setQuery} onSearch={searchCredits} disabled={disabled} searching={searchStatus === "loading"} />
+            <div role="status" aria-live="polite" aria-atomic="true" className="mt-4 text-sm">
+              {searchStatus === "idle" && <p className="text-[var(--hugella-navy-secondary)]">Buscá un crédito para comenzar.</p>}
+              {searchStatus === "loading" && <p className="font-semibold">Buscando créditos…</p>}
+              {searchStatus === "done" && <p>{results.length === 0 ? "No se encontraron créditos para esta búsqueda." : "Seleccioná un resultado para consultar su ficha y registrar un pago."}</p>}
+              {searchError && <p className="text-red-800">{searchError}</p>}
+            </div>
+            {results.length > 0 && <CreditResults credits={results} selectedId={selected?.credito_id} disabled={disabled} onSelect={selectCredit} />}
+          </section>
 
-          {results.length > 0 && <section className="mt-4 max-w-2xl overflow-hidden rounded-[var(--hugella-radius-md)] border border-[var(--hugella-border)] bg-white shadow-[0_1px_4px_rgb(6_31_53/0.04)]"><p className="border-b border-[var(--hugella-border)] bg-[var(--hugella-navy)] px-5 py-3 text-xs font-bold uppercase tracking-wider text-white/75">Resultados</p><div className="divide-y divide-[var(--hugella-border)]">{results.map((credit) => <button key={credit.credito_id} type="button" onClick={() => { setSelected(credit); setMessage(null); }} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-slate-50"><span><strong className="block">{credit.nombre_cliente}</strong><span className="text-sm text-[var(--muted)]">{credit.producto}</span></span><span className="shrink-0 font-mono text-sm font-semibold">{credit.codigo_credito}</span></button>)}</div></section>}
-          {!searching && query && results.length === 0 && !message && <p className="mt-4 text-sm text-[var(--muted)]">No se encontraron créditos.</p>}
+          <div role="status" aria-live="polite" aria-atomic="true" className="space-y-3">
+            {success && <p className="rounded-[var(--hugella-radius-sm)] border border-[var(--hugella-gold)] bg-[var(--hugella-gold)]/10 p-4 text-sm font-semibold [overflow-wrap:anywhere]">{success}</p>}
+            {refreshing && <p className="text-sm">Actualizando la ficha del crédito…</p>}
+            {refreshError && <p className="rounded-[var(--hugella-radius-sm)] border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">{refreshError}</p>}
+            {paymentError && <p className="rounded-[var(--hugella-radius-sm)] border border-red-200 bg-red-50 p-4 text-sm text-red-800">{paymentError}</p>}
+          </div>
 
-          {selected && <section className="mt-6 rounded-[var(--hugella-radius-card)] bg-[var(--hugella-navy)] p-5 text-white shadow-[0_2px_8px_rgb(6_31_53/0.07)] sm:p-7"><div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm text-white/55">Cliente seleccionado</p><h2 className="mt-1 text-xl font-bold">{selected.nombre_cliente}</h2><p className="mt-1 font-mono text-sm text-white/60">{selected.codigo_credito}</p></div><span className="w-fit rounded-[var(--hugella-radius-sm)] bg-[var(--hugella-gold)] px-3 py-1.5 text-sm font-bold text-[var(--hugella-navy-deep)] ring-1 ring-[var(--hugella-gold-light)]">{selected.estado}</span></div><div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-5 border-t border-white/10 pt-5 sm:grid-cols-5"><div><p className="text-xs text-white/50">Producto</p><p className="mt-1 text-sm font-semibold">{selected.producto}</p></div><div><p className="text-xs text-white/50">Cuota diaria</p><p className="mt-1 font-semibold text-[var(--hugella-gold-light)]">{money.format(Number(selected.importe_cuota))}</p></div><div><p className="text-xs text-white/50">Plan</p><p className="mt-1 font-semibold">{selected.cantidad_cuotas} cuotas</p></div><div><p className="text-xs text-white/50">Pagadas</p><p className="mt-1 font-semibold text-[var(--hugella-gold-light)]">{selected.cuotas_pagadas}</p></div><div><p className="text-xs text-white/50">Pendientes</p><p className="mt-1 font-semibold">{selected.cuotas_pendientes}</p></div></div></section>}
-
-          {message && <div role="status" className={`mt-5 rounded-[var(--hugella-radius-sm)] border px-4 py-3 text-sm font-semibold ${message.type === "success" ? "border-[var(--hugella-gold)]/50 bg-[var(--hugella-gold)]/10 text-[var(--hugella-navy)]" : "border-red-200 bg-red-50 text-red-700"}`}>{message.type === "success" ? "✓ " : ""}{message.text}</div>}
-
-          <section className={`mt-6 max-w-xl rounded-[var(--hugella-radius-card)] border border-[var(--hugella-border)] bg-white p-5 shadow-[0_1px_4px_rgb(6_31_53/0.04)] sm:p-7 ${selected ? "" : "opacity-60"}`}><div className="mb-6"><p className="section-kicker">Nuevo movimiento</p><h2 className="text-xl font-bold">Datos del pago</h2></div>{selected ? <form onSubmit={handlePayment} className="space-y-5"><div><label className="field-label" htmlFor="amount">Importe recibido</label><div className="relative"><span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 font-bold text-[var(--muted)]">$</span><input className="field-control field-control--currency text-lg font-bold" id="amount" name="amount" type="number" min="0.01" step="0.01" required /></div><p className="mt-2 text-sm text-[var(--muted)]">Supabase calculará las cuotas aplicadas y el remanente acumulado.</p></div><div><label className="field-label" htmlFor="date">Fecha</label><input className="field-control" id="date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></div><div><label className="field-label" htmlFor="method">Medio de pago</label><select className="field-control" id="method" name="method" defaultValue="Transferencia"><option>Transferencia</option><option>Efectivo</option><option>Tarjeta de débito</option><option>Mercado Pago</option></select></div><div><label className="field-label" htmlFor="notes">Observaciones <span className="font-normal text-[var(--muted)]">(opcional)</span></label><textarea className="field-control min-h-24 resize-y" id="notes" name="notes" maxLength={500} /></div><button disabled={submitting} type="submit" className="min-h-13 w-full rounded-[var(--hugella-radius-sm)] bg-[linear-gradient(135deg,var(--hugella-gold-light),var(--hugella-gold))] px-5 py-3.5 font-bold text-[var(--hugella-navy-deep)] shadow-[inset_0_1px_rgb(255_255_255/0.25)] transition hover:bg-[var(--hugella-gold-light)] disabled:cursor-wait disabled:opacity-60">{submitting ? "Registrando…" : "Registrar pago"}</button></form> : <p className="text-[var(--muted)]">Buscá y seleccioná un crédito para registrar un pago.</p>}</section>
+          {selected && (
+            <div className="grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-2">
+              <CreditDetail credit={selected} />
+              <PaymentForm key={`${selected.credito_id}-${formVersion}`} disabled={submitting} refreshing={refreshing} onPayment={handlePayment} />
+            </div>
+          )}
         </div>
       </div>
     </main>
