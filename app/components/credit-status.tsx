@@ -7,5 +7,5 @@ const styles: Record<string, string> = {
 };
 
 export default function CreditStatus({ status }: { status: string }) {
-  return <span className={`inline-block max-w-full rounded-[var(--hugella-radius-sm)] border px-2.5 py-1.5 text-xs font-bold [overflow-wrap:anywhere] ${styles[status] ?? "border-slate-300 bg-slate-100 text-slate-950"}`}>{status}</span>;
+  return <span className={`inline-block max-w-full whitespace-nowrap rounded-[var(--hugella-radius-sm)] border px-2 py-1 text-[0.68rem] font-bold ${styles[status] ?? "border-slate-300 bg-slate-100 text-slate-950"} sm:px-2.5 sm:py-1.5 sm:text-xs`}>{status}</span>;
 }
