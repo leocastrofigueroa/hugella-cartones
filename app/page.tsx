@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 type CreditOption = {
@@ -24,6 +24,51 @@ function isCreditOption(value: unknown): value is CreditOption {
 }
 
 const focusStyle = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--hugella-navy)]";
+const CREDIT_SESSION_KEY = "hugella.client-credits";
+const CREDIT_SESSION_DURATION = 8 * 60 * 60 * 1000;
+
+function clearCreditSession() {
+  try {
+    sessionStorage.removeItem(CREDIT_SESSION_KEY);
+  } catch {
+    // Browser storage is optional; access must still work without it.
+  }
+}
+
+function restoreCredits(): CreditOption[] {
+  try {
+    const raw = sessionStorage.getItem(CREDIT_SESSION_KEY);
+    if (!raw) return [];
+    const session: unknown = JSON.parse(raw);
+    if (session && typeof session === "object") {
+      const { createdAt, credits } = session as Record<string, unknown>;
+      const now = Date.now();
+      if (typeof createdAt === "number" && Number.isFinite(createdAt)
+        && createdAt <= now && now - createdAt < CREDIT_SESSION_DURATION
+        && Array.isArray(credits) && credits.length > 0 && credits.every(isCreditOption)) {
+        return credits;
+      }
+    }
+  } catch {
+    // Invalid or unavailable storage falls back to the normal form.
+  }
+  clearCreditSession();
+  return [];
+}
+
+function saveCredits(credits: CreditOption[]) {
+  try {
+    // Navigation convenience only, never an authorization decision.
+    sessionStorage.setItem(CREDIT_SESSION_KEY, JSON.stringify({
+      createdAt: Date.now(),
+      credits: credits.map(({ access_token, codigo, producto, estado }) => ({
+        access_token, codigo, producto, estado,
+      })),
+    }));
+  } catch {
+    clearCreditSession();
+  }
+}
 
 export default function ClientPage() {
   const router = useRouter();
@@ -32,17 +77,35 @@ export default function ClientPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState<{ dni?: string; phone?: string }>({});
-  const [credits, setCredits] = useState<CreditOption[]>([]);
+  const [credits, setCredits] = useState<CreditOption[] | null>(null);
   const inFlight = useRef(false);
   const dniInput = useRef<HTMLInputElement>(null);
   const phoneInput = useRef<HTMLInputElement>(null);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setCredits(restoreCredits()));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  function consultOtherDetails() {
+    clearCreditSession();
+    setCredits([]);
+    setDni("");
+    setLastFour("");
+    setMessage("");
+    setErrors({});
+    setLoading(false);
+    inFlight.current = false;
+    requestAnimationFrame(() => dniInput.current?.focus());
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (inFlight.current) return;
     setMessage("");
     setCredits([]);
+    clearCreditSession();
 
     const normalizedDni = dni.replace(/[.\s-]/g, "");
     const nextErrors = {
@@ -87,12 +150,15 @@ export default function ClientPage() {
         setMessage("No pudimos realizar la consulta. Intentá nuevamente en unos minutos.");
       } else if (data.length === 0) {
         setMessage("No encontramos créditos con los datos ingresados.");
-      } else if (data.length === 1) {
-        router.push(`/carton/${data[0].access_token}`);
-        navigating = true;
       } else {
+        saveCredits(data);
         setCredits(data);
-        requestAnimationFrame(() => resultsHeading.current?.focus());
+        if (data.length === 1) {
+          router.push(`/carton/${data[0].access_token}`);
+          navigating = true;
+        } else {
+          requestAnimationFrame(() => resultsHeading.current?.focus());
+        }
       }
     } catch {
       setMessage("No pudimos realizar la consulta. Intentá nuevamente en unos minutos.");
@@ -113,6 +179,8 @@ export default function ClientPage() {
       </header>
 
       <div className="mx-auto w-full max-w-xl px-5 py-8 sm:px-8 sm:py-14">
+        {credits === null && <p role="status" className="text-[var(--hugella-navy-secondary)]">Cargando…</p>}
+        {credits?.length === 0 && (
         <section aria-labelledby="access-title" className="rounded-[var(--hugella-radius-card)] border border-[var(--hugella-border)] border-t-4 border-t-[var(--hugella-gold)] bg-white p-5 shadow-[0_3px_10px_rgb(6_31_53/0.06)] sm:p-8">
           <p className="section-kicker">HUGELLA Cartones</p>
           <h1 id="access-title" className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Consultá tu crédito</h1>
@@ -139,10 +207,12 @@ export default function ClientPage() {
             </div>
           </form>
         </section>
+        )}
 
-        {credits.length > 1 && (
-          <section aria-labelledby="credits-title" className="mt-8">
-            <h2 ref={resultsHeading} tabIndex={-1} id="credits-title" className={`text-2xl font-bold tracking-tight ${focusStyle}`}>Elegí tu crédito</h2>
+        {credits && credits.length > 0 && (
+          <section aria-labelledby="credits-title">
+            <p className="section-kicker">HUGELLA Cartones</p>
+            <h1 ref={resultsHeading} tabIndex={-1} id="credits-title" className={`mt-2 text-3xl font-bold tracking-tight sm:text-4xl ${focusStyle}`}>Mis créditos</h1>
             <p className="mt-2 text-[var(--hugella-navy-secondary)]">Seleccioná el cartón que querés consultar.</p>
             <ul className="mt-4 space-y-3">
               {credits.map((credit) => (
@@ -156,6 +226,9 @@ export default function ClientPage() {
                 </li>
               ))}
             </ul>
+            <button type="button" onClick={consultOtherDetails} className={`mt-6 min-h-12 w-full rounded-[var(--hugella-radius-sm)] border border-[var(--hugella-border)] bg-white px-4 py-3 text-sm font-bold text-[var(--hugella-navy)] transition hover:border-[var(--hugella-gold)] ${focusStyle}`}>
+              Consultar con otros datos
+            </button>
           </section>
         )}
       </div>

@@ -1,6 +1,7 @@
 import CreditStatus from "../../components/credit-status";
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 type PublicPayment = {
@@ -106,6 +107,9 @@ export default async function PublicCreditPage({ params }: PageProps<"/carton/[t
       </header>
 
       <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
+        <Link href="/" prefetch={false} className="mb-6 inline-flex min-h-12 items-center rounded-[var(--hugella-radius-sm)] border border-[var(--hugella-border)] bg-white px-4 py-3 text-sm font-bold text-[var(--hugella-navy)] transition hover:border-[var(--hugella-gold)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--hugella-navy)]">
+          ← Mis créditos
+        </Link>
         <section className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div><p className="mb-2 text-sm font-bold uppercase tracking-[0.16em] text-[var(--hugella-gold-dark)]">Mi crédito</p><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Hola, {credit.nombre_cliente}</h1><p className="mt-2 text-[var(--muted)]">Este es el estado actualizado de tu plan.</p></div>
           <div className="w-fit rounded-[var(--hugella-radius-sm)] bg-white px-4 py-2 text-sm font-semibold text-[var(--navy)] shadow-[0_1px_3px_rgb(6_31_53/0.06)] ring-1 ring-[var(--hugella-border)]">Crédito <span className="ml-1 font-mono">{credit.codigo_credito}</span></div>
