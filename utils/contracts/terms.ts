@@ -1,0 +1,28 @@
+export const CONTRACT_TERMS_VERSION =
+    "BORRADOR-JURIDICO-2026-09-14";
+
+export const CONTRACT_TERMS = `
+PRIMERA: OBJETO Y ESTADO DE LA MERCADERÍA. LA EMPRESA vende al CLIENTE, quien adquiere, la mercadería individualizada en el apartado "Detalle de mercadería adquirida". El CLIENTE declara haber recibido información clara sobre sus características principales, estado y condiciones de uso. La entrega efectiva y el estado de la mercadería serán registrados mediante la correspondiente constancia de entrega.
+
+SEGUNDA: ENTREGA, REVISIÓN Y GARANTÍA. El CLIENTE dispondrá de un plazo de setenta y dos (72) horas desde la entrega para comunicar a LA EMPRESA cualquier anomalía advertida inicialmente, a fin de facilitar su rápida revisión y solución. Este plazo de aviso no elimina, reduce ni reemplaza la garantía legal ni la garantía otorgada por el fabricante o importador. Para mercadería nueva y usada se respetarán, como mínimo, los plazos y derechos establecidos por la normativa vigente.
+
+TERCERA: PRECIO Y MODALIDAD DE PAGO. El precio de contado de referencia, el anticipo si existiera, el monto financiado, el total de la operación financiada, la cantidad y periodicidad de las cuotas, el importe de cada pago, los intereses, gastos administrativos, tasa efectiva anual y costo financiero total se detallan en el resumen financiero que integra el presente contrato. La primera cuota vencerá el día de la entrega efectiva de la mercadería. Las siguientes vencerán diariamente, con excepción de los días domingo, hasta la cancelación total de la operación.
+
+CUARTA: MORA Y REGULARIZACIÓN. La mora se producirá ante el incumplimiento de siete (7) pagos diarios consecutivos o cuando el nivel de cumplimiento de los pagos resulte inferior al ochenta por ciento (80 %) de las cuotas vencidas durante el período evaluado. Producida la mora, LA EMPRESA notificará al CLIENTE el detalle de la deuda y le otorgará un plazo de diez (10) días corridos para regularizarla. Transcurrido dicho plazo sin regularización, LA EMPRESA podrá exigir el cumplimiento de las obligaciones pendientes o resolver el contrato conforme a la legislación vigente.
+
+QUINTA: RESOLUCIÓN POR INCUMPLIMIENTO Y RESTITUCIÓN. Si el CLIENTE no regularizara la mora dentro del plazo indicado, LA EMPRESA podrá resolver el contrato y solicitar la restitución voluntaria de la mercadería. Las partes coordinarán de buena fe el día, horario y lugar del retiro. La restitución será documentada mediante una constancia que indique el estado del producto, sus accesorios y número de serie, pudiendo acompañarse fotografías.
+
+Recuperada la mercadería, LA EMPRESA realizará una liquidación clara y detallada. Las sumas abonadas podrán aplicarse, dentro de los límites permitidos por la legislación vigente, a cubrir los gastos de flete efectivamente ocasionados por la entrega y el retiro, los gastos administrativos razonables previamente informados y una depreciación de hasta el veinte por ciento (20 %) del precio de contado cuando, por su entrega, uso y estado, la mercadería ya no pudiera comercializarse como nueva. La depreciación no será automática y deberá determinarse según las condiciones verificadas al momento de la restitución.
+
+Si existiera un saldo a favor del CLIENTE después de la liquidación, será reintegrado dentro de los diez (10) días hábiles siguientes. Cualquier diferencia reclamada deberá estar debidamente justificada. El retiro requerirá la conformidad del CLIENTE o el procedimiento legal correspondiente, sin ingreso forzado al domicilio ni ejercicio de vías de hecho.
+
+SEXTA: REVOCACIÓN Y CANCELACIÓN SOLICITADA POR EL CLIENTE. El CLIENTE podrá ejercer el derecho de revocación cuando corresponda, dentro del plazo y conforme a las condiciones previstas por la normativa de defensa del consumidor. El ejercicio válido de ese derecho no tendrá penalidades ni gastos a cargo del CLIENTE. Fuera de esos supuestos, el CLIENTE podrá solicitar la cancelación de la operación y la restitución de la mercadería, quedando sujeta a la aceptación de LA EMPRESA y a una liquidación clara, razonable y documentada.
+
+SÉPTIMA: INFORMACIÓN CREDITICIA Y DATOS PERSONALES. LA EMPRESA tratará los datos personales y crediticios del CLIENTE únicamente para administrar la relación contractual, los pagos, las cobranzas y las obligaciones legalmente permitidas. Cualquier comunicación de incumplimientos a bases de información crediticia deberá realizarse únicamente cuando se cumplan los requisitos legales aplicables, con información exacta, actualizada y pertinente, respetando los derechos de acceso, rectificación y supresión que correspondan.
+
+OCTAVA: DOMICILIOS Y COMUNICACIONES. Las partes constituyen como domicilios los indicados en el presente contrato. El CLIENTE se compromete a comunicar cualquier modificación de domicilio, teléfono, correo electrónico, cierre del comercio, cambio de rubro o titularidad. Las comunicaciones podrán efectuarse por medios físicos o electrónicos que permitan conservar constancia de su envío y recepción. El correo de contacto de LA EMPRESA es info.hugella@gmail.com.
+
+NOVENA: LEGISLACIÓN Y JURISDICCIÓN. El presente contrato se regirá por la legislación de la República Argentina y las normas de protección del consumidor. Para cualquier controversia será competente la autoridad administrativa o judicial correspondiente al domicilio real del CLIENTE, sin perjuicio de otras opciones más favorables que pudiera reconocerle la normativa vigente.
+
+El presente texto constituye un borrador sujeto a revisión jurídica antes de su utilización con clientes reales.
+`.trim();

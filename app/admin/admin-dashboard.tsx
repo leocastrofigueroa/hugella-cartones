@@ -8,6 +8,7 @@ import styles from "./admin.module.css";
 import CreditSearch from "./credit-search";
 import CreditResults from "./credit-results";
 import CreditDetail from "./credit-detail";
+import ContractForm from "./contract-form";
 import PaymentForm from "./payment-form";
 import PaymentHistory from "./payment-history";
 import { focusStyle, money, type Credit, type PaymentHistoryItem, type PaymentInput, type PaymentResult } from "./admin-types";
@@ -211,6 +212,7 @@ export default function AdminDashboard({ email }: { email: string }) {
               <CreditDetail credit={selected} />
               <PaymentForm key={`${selected.credito_id}-${formVersion}`} disabled={submitting} refreshing={refreshing} onPayment={handlePayment} />
               <div className="xl:col-span-2"><PaymentHistory status={historyStatus} payments={history} error={historyError} /></div>
+              <ContractForm credit={selected} />
             </div>
           )}
         </div>
