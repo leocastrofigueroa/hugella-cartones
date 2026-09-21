@@ -35,6 +35,21 @@ export type PaymentHistoryItem = {
   observaciones: string | null;
   origen: string | null;
   created_at: string;
+  estado: "VALIDO" | "ANULADO";
+  motivo_anulacion: string | null;
+  anulado_at: string | null;
+};
+
+export type PaymentAnnulmentResult = {
+  operacion_id: string;
+  pago_id: string;
+  credito_id: string;
+  estado_pago: "ANULADO";
+  anulado_at: string;
+  anulado_por: string;
+  motivo_anulacion: string;
+  estado_credito: string;
+  ya_procesada: boolean;
 };
 
 export const money = new Intl.NumberFormat("es-AR", {

@@ -22,6 +22,9 @@ const importWithReference = async (code, amount, reference) => (await db.query(
   `select public.importar_pago_hugella($1,date '2026-09-09',$2,' Transferencia ',' nota ',$3) as id`,
   [code, amount, reference]
 )).rows[0].id;
+const paymentOrigin = async id => (await db.query(
+  `select origen from public.pagos where id=$1`, [id]
+)).rows[0].origen;
 const countPayments = async creditId => (await db.query(
   `select count(*)::integer as count from public.pagos where credito_id=$1`, [creditId]
 )).rows[0].count;
@@ -59,7 +62,8 @@ try {
       observaciones text,
       created_at timestamptz not null default clock_timestamp(),
       referencia_importacion text,
-      estado text not null default 'VALIDO' check (estado in ('VALIDO','ANULADO'))
+      estado text not null default 'VALIDO' check (estado in ('VALIDO','ANULADO')),
+      origen text not null default 'ADMIN' check (origen in ('ADMIN','SHEETS'))
     );
     create unique index pagos_referencia_importacion_unique
       on public.pagos(referencia_importacion) where referencia_importacion is not null;
@@ -113,11 +117,26 @@ try {
       [signature])).rows[0].allowed, true);
   }
 
+  // The Stage 3 replacement changes no pre-existing row and preserves every
+  // function attribute and ACL outside the function source.
+  await db.query(`insert into public.creditos values ($1,'PRE-1',5000,2,date '2026-09-07','AL DIA')`, [uuid(90)]);
+  await db.query(`insert into public.pagos
+    (id,credito_id,fecha_pago,importe,medio_pago,origen,referencia_importacion)
+    values ($1,$2,date '2026-09-08',1000,'Efectivo','ADMIN',null)`, [uuid(91), uuid(90)]);
+  const preexistingBefore = (await db.query(`select to_jsonb(pg) value from public.pagos pg where id=$1`,
+    [uuid(91)])).rows[0].value;
+  const beforeClassificationMetadata = await Promise.all(signatures.map(metadata));
+  await db.exec(read('migrations/202609200003_clasificar_origen_importacion_sheets.sql'));
+  assert.deepEqual(await Promise.all(signatures.map(metadata)), beforeClassificationMetadata);
+  assert.deepEqual((await db.query(`select to_jsonb(pg) value from public.pagos pg where id=$1`,
+    [uuid(91)])).rows[0].value, preexistingBefore);
+
   await db.exec(`set test.uid='${uuid(999)}'; set test.role='authenticated'; set test.admin='yes';`);
 
   // Admin: partial, accumulated installment and exact cancellation.
   await db.query(`insert into public.creditos values ($1,'ADM-1',5000,2,date '2026-09-07','AL DIA')`, [uuid(1)]);
   let result = await adminPayment(uuid(1), 3000);
+  assert.equal(await paymentOrigin(result.pago_id), 'ADMIN');
   assert.deepEqual([result.cuotas_aplicadas, result.remanente, result.cuotas_pagadas, result.cuotas_pendientes],
     [0, '3000', 0, 2]);
   result = await adminPayment(uuid(1), 2000);
@@ -147,7 +166,9 @@ try {
   await db.query(`insert into public.creditos values ($1,'IMP-1',5000,3,date '2026-09-07','AL DIA')`, [uuid(4)]);
   const referencedId = await importWithReference('IMP-1', 3000, 'SHEETS-PG-000001');
   assert.ok(referencedId);
+  assert.equal(await paymentOrigin(referencedId), 'SHEETS');
   assert.equal(await importWithReference('IMP-1', 3000, 'SHEETS-PG-000001'), referencedId);
+  assert.equal(await paymentOrigin(referencedId), 'SHEETS');
   assert.equal(await countPayments(uuid(4)), 1);
 
   // An annulled reference is an explicit error and is never recreated.
@@ -161,6 +182,15 @@ try {
   await assert.rejects(importWithReference('IMP-2', 11000, 'SHEETS-PG-OVER'),
     /Valid payments exceed credit total/);
   assert.equal(await countPayments(uuid(5)), 0);
+  assert.equal((await db.query(`select count(*)::integer count from public.pagos
+    where credito_id=$1
+      and (referencia_importacion='SHEETS-PG-OVER' or origen='SHEETS')`,
+  [uuid(5)])).rows[0].count, 0);
+
+  // An explicit six-argument call with NULL remains an ADMIN payment.
+  await db.query(`insert into public.creditos values ($1,'IMP-NULL',5000,3,date '2026-09-07','AL DIA')`, [uuid(7)]);
+  const explicitNullId = await importWithReference('IMP-NULL', 1000, null);
+  assert.equal(await paymentOrigin(explicitNullId), 'ADMIN');
 
   // PostgreSQL considers a five-argument positional call ambiguous while the
   // six-argument overload has defaults. Remove only that overload in this
@@ -169,6 +199,7 @@ try {
   await db.query(`insert into public.creditos values ($1,'IMP-3',5000,3,date '2026-09-07','AL DIA')`, [uuid(6)]);
   const noReferenceId = await importWithoutReference('IMP-3', 2000);
   assert.ok(noReferenceId);
+  assert.equal(await paymentOrigin(noReferenceId), 'ADMIN');
   assert.equal(await countPayments(uuid(6)), 1);
 
   // The internal engine stays inaccessible to the application role.

@@ -11,7 +11,7 @@ import CreditDetail from "./credit-detail";
 import ContractForm from "./contract-form";
 import PaymentForm from "./payment-form";
 import PaymentHistory from "./payment-history";
-import { focusStyle, money, type Credit, type PaymentHistoryItem, type PaymentInput, type PaymentResult } from "./admin-types";
+import { focusStyle, money, type Credit, type PaymentAnnulmentResult, type PaymentHistoryItem, type PaymentInput, type PaymentResult } from "./admin-types";
 
 type SearchStatus = "idle" | "loading" | "done" | "error";
 
@@ -22,6 +22,7 @@ export default function AdminDashboard({ email }: { email: string }) {
   const [selected, setSelected] = useState<Credit | null>(null);
   const [searchStatus, setSearchStatus] = useState<SearchStatus>("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [annulling, setAnnulling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [paymentError, setPaymentError] = useState("");
@@ -34,7 +35,7 @@ export default function AdminDashboard({ email }: { email: string }) {
   // Synchronous lock covers searches, payment submission, and its refresh.
   const busy = useRef(false);
   const historyRequest = useRef(0);
-  const disabled = searchStatus === "loading" || submitting;
+  const disabled = searchStatus === "loading" || submitting || annulling;
 
   async function loadPaymentHistory(creditId: string) {
     const requestId = ++historyRequest.current;
@@ -162,6 +163,63 @@ export default function AdminDashboard({ email }: { email: string }) {
     }
   }
 
+  async function handleAnnulment(payment: PaymentHistoryItem, reason: string, operationId: string) {
+    if (busy.current || !selected) return "Hay otra operación en curso. Intentá nuevamente.";
+    const credit = selected;
+    busy.current = true;
+    setAnnulling(true);
+    setSuccess("");
+    setPaymentError("");
+    setRefreshError("");
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("anular_pago_admin", {
+        p_pago_id: payment.pago_id,
+        p_operacion_id: operationId,
+        p_motivo: reason,
+      });
+
+      if (error) {
+        return error.code === "42501"
+          ? "Tu cuenta no tiene permisos para anular pagos."
+          : "No se pudo anular el pago. Revisá el estado del pago e intentá nuevamente.";
+      }
+
+      const annulment = (Array.isArray(data) ? data[0] : undefined) as PaymentAnnulmentResult | undefined;
+      if (!annulment || annulment.pago_id !== payment.pago_id || annulment.estado_pago !== "ANULADO") {
+        return "No recibimos una confirmación válida. Verificá el historial antes de reintentar.";
+      }
+
+      setSuccess(`Pago de ${money.format(Number(payment.importe))} anulado correctamente.`);
+
+      try {
+        const { data: refreshed, error: refreshFailure } = await supabase.rpc("buscar_creditos_admin", { p_busqueda: credit.codigo_credito });
+        if (refreshFailure || !Array.isArray(refreshed)) throw new Error("Credit refresh failed");
+        const updated = (refreshed as Credit[]).find((item) => item.credito_id === credit.credito_id);
+        if (!updated) throw new Error("Credit missing from refresh");
+        setSelected(updated);
+        setResults((current) => current.map((item) => item.credito_id === updated.credito_id ? updated : item));
+        await loadPaymentHistory(updated.credito_id);
+      } catch {
+        historyRequest.current += 1;
+        setSelected(null);
+        setHistory([]);
+        setHistoryStatus("idle");
+        setResults([]);
+        setSearchStatus("idle");
+        setRefreshError("El pago ya fue anulado, pero no pudimos actualizar la ficha. Volvé a buscar el crédito para ver sus datos actuales. No vuelvas a anular este pago.");
+      }
+
+      return null;
+    } catch {
+      return "Se interrumpió la comunicación. Verificá el historial antes de reintentar esta misma solicitud.";
+    } finally {
+      setAnnulling(false);
+      busy.current = false;
+    }
+  }
+
   async function signOut() {
     if (busy.current) return;
     const supabase = createClient();
@@ -211,7 +269,7 @@ export default function AdminDashboard({ email }: { email: string }) {
             <div className="grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-2">
               <CreditDetail credit={selected} />
               <PaymentForm key={`${selected.credito_id}-${formVersion}`} disabled={submitting} refreshing={refreshing} onPayment={handlePayment} />
-              <div className="xl:col-span-2"><PaymentHistory status={historyStatus} payments={history} error={historyError} /></div>
+              <div className="xl:col-span-2"><PaymentHistory status={historyStatus} payments={history} error={historyError} disabled={disabled} onAnnul={handleAnnulment} /></div>
               <ContractForm credit={selected} />
             </div>
           )}
