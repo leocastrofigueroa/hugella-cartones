@@ -32,7 +32,7 @@ function load(file) {
 }
 const PaymentHistory = load(new URL('../app/admin/payment-history.tsx', import.meta.url)).default;
 const payment = {
-  pago_id: '11111111-1111-1111-1111-111111111111', fecha_pago: '2026-09-10', importe: '5000', medio_pago: 'Efectivo',
+  pago_id: '11111111-1111-1111-1111-111111111111', fecha_pago: '2026-09-10', importe: '5000', medio_pago: 'Transferencia',
   observaciones: 'Original', created_at: '2026-09-10T12:00:00Z', estado: 'VALIDO', origen: 'ADMIN',
   cuotas_aplicadas: 1, remanente: 0, motivo_anulacion: null, anulado_at: null, reemplaza_pago_id: null,
 };
@@ -56,7 +56,10 @@ try {
   await click(button('Corregir'));
   assert.equal(field('amount').value, '5000');
   assert.equal(field('date').value, '2026-09-10');
-  assert.equal(field('method').value, 'Efectivo');
+  assert.equal(field('method').tagName, 'SELECT');
+  assert.deepEqual([...field('method').options].map(option => option.value),
+    ['Transferencia', 'Efectivo', 'Tarjeta de débito', 'Mercado Pago']);
+  assert.equal(field('method').value, 'Transferencia');
   assert.equal(field('notes').value, 'Original');
   assert.equal(field('reason').value, '');
   assert.equal(document.querySelectorAll('[name="credito_id"], [name="cliente_id"]').length, 0);
@@ -64,13 +67,14 @@ try {
   assert.equal(calls.length, 0, 'Reason required');
   field('amount').value = '7500';
   field('date').value = '2026-09-11';
-  field('method').value = 'Transferencia';
+  field('method').value = 'Efectivo';
+  await act(async () => field('method').dispatchEvent(new dom.window.Event('change', { bubbles: true })));
   field('notes').value = '  Corregido  ';
   field('reason').value = '  Error de carga  ';
   await act(async () => { submit(); submit(); });
   assert.equal(calls.length, 1, 'Synchronous guard prevents double submit');
   assert.deepEqual(JSON.parse(JSON.stringify(calls[0][1])), {
-    p_importe: 7500, p_fecha_pago: '2026-09-11', p_medio_pago: 'Transferencia',
+    p_importe: 7500, p_fecha_pago: '2026-09-11', p_medio_pago: 'Efectivo',
     p_observaciones: 'Corregido', p_motivo: 'Error de carga',
   });
   assert.equal(document.querySelector('[aria-labelledby="correction-title"] fieldset').disabled, true);
