@@ -564,6 +564,13 @@ function sincronizarPagosAdminHaciaSheets() {
       );
     }
 
+    // Validate the six manual columns before choosing or writing a row.
+    const columnasManuales = Object.values(obtenerColumnasRetiro_(cobros))
+      .map(columna => columna - 1);
+    const filaLibre = (valores, formulas) => columnasManuales.every(
+      columna => valores[columna] === '' && formulas[columna] === ''
+    );
+
     // IDs que ya existen en Sheets para evitar duplicados.
     const idsExistentes = new Set(
       data.slice(1)
@@ -584,23 +591,26 @@ function sincronizarPagosAdminHaciaSheets() {
 
       // Si ya está en Sheets, no volvemos a agregarlo.
       if (!idsExistentes.has(idPago)) {
-        const valoresFecha = cobros
-          .getRange(2, 1, cobros.getMaxRows() - 1, 1)
-          .getValues();
-
-        let ultimaFilaConPago = 1;
-
-        for (let i = valoresFecha.length - 1; i >= 0; i--) {
-          if (valoresFecha[i][0] !== '') {
-            ultimaFilaConPago = i + 2;
-            break;
-          }
+        const maxFilas = cobros.getMaxRows();
+        let nuevaFila = maxFilas + 1;
+        if (maxFilas >= 2) {
+          const rango = cobros.getRange(2, 1, maxFilas - 1, 9);
+          const valores = rango.getValues();
+          const formulas = rango.getFormulas();
+          const libre = valores.findIndex((fila, indice) => filaLibre(fila, formulas[indice]));
+          if (libre !== -1) nuevaFila = libre + 2;
         }
 
-        let nuevaFila = ultimaFilaConPago + 1;
+        // If every existing row contains manual data/formulas, append beyond
+        // all of them, even when their Fecha cell is empty.
+        if (nuevaFila > maxFilas) {
+          cobros.insertRowAfter(maxFilas);
+        }
 
-        if (nuevaFila > cobros.getMaxRows()) {
-          cobros.insertRowAfter(cobros.getMaxRows());
+        // Recheck immediately before writing; ScriptLock does not block humans.
+        const destino = cobros.getRange(nuevaFila, 1, 1, 9);
+        if (!filaLibre(destino.getValues()[0], destino.getFormulas()[0])) {
+          throw new Error('La fila elegida dejó de estar libre. No se sobrescribió el pago.');
         }
 
         // Solo escribimos las columnas manuales.
