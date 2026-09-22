@@ -25,6 +25,16 @@ export type PaymentInput = {
   p_observaciones: string | null;
 };
 
+export type PaymentCorrectionInput = PaymentInput & { p_motivo: string };
+
+export type PaymentCorrectionResult = {
+  operacion_id: string;
+  pago_original_id: string;
+  pago_nuevo_id: string;
+  credito_id: string;
+  ya_procesada: boolean;
+};
+
 export type PaymentHistoryItem = {
   pago_id: string;
   fecha_pago: string;
@@ -38,6 +48,7 @@ export type PaymentHistoryItem = {
   estado: "VALIDO" | "ANULADO";
   motivo_anulacion: string | null;
   anulado_at: string | null;
+  reemplaza_pago_id: string | null;
 };
 
 export type PaymentAnnulmentResult = {

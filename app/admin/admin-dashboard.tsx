@@ -11,7 +11,7 @@ import CreditDetail from "./credit-detail";
 import ContractForm from "./contract-form";
 import PaymentForm from "./payment-form";
 import PaymentHistory from "./payment-history";
-import { focusStyle, money, type Credit, type PaymentAnnulmentResult, type PaymentHistoryItem, type PaymentInput, type PaymentResult } from "./admin-types";
+import { focusStyle, money, type Credit, type PaymentAnnulmentResult, type PaymentCorrectionInput, type PaymentCorrectionResult, type PaymentHistoryItem, type PaymentInput, type PaymentResult } from "./admin-types";
 
 type SearchStatus = "idle" | "loading" | "done" | "error";
 
@@ -22,6 +22,7 @@ export default function AdminDashboard({ email }: { email: string }) {
   const [selected, setSelected] = useState<Credit | null>(null);
   const [searchStatus, setSearchStatus] = useState<SearchStatus>("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
   const [annulling, setAnnulling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchError, setSearchError] = useState("");
@@ -35,7 +36,7 @@ export default function AdminDashboard({ email }: { email: string }) {
   // Synchronous lock covers searches, payment submission, and its refresh.
   const busy = useRef(false);
   const historyRequest = useRef(0);
-  const disabled = searchStatus === "loading" || submitting || annulling;
+  const disabled = searchStatus === "loading" || submitting || annulling || correcting;
 
   async function loadPaymentHistory(creditId: string) {
     const requestId = ++historyRequest.current;
@@ -163,6 +164,58 @@ export default function AdminDashboard({ email }: { email: string }) {
     }
   }
 
+  async function handleCorrection(payment: PaymentHistoryItem, input: PaymentCorrectionInput, operationId: string) {
+    if (busy.current || !selected) return "Hay otra operación en curso. Intentá nuevamente.";
+    const credit = selected;
+    busy.current = true;
+    setCorrecting(true);
+    setSuccess("");
+    setPaymentError("");
+    setRefreshError("");
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("corregir_pago_admin", {
+        p_pago_id: payment.pago_id,
+        p_operacion_id: operationId,
+        ...input,
+      });
+      if (error) {
+        return error.code === "42501"
+          ? "Tu cuenta no tiene permisos para corregir pagos."
+          : "No se pudo corregir el pago. Revisá los datos, el importe pendiente y que el pago siga válido.";
+      }
+      const correction = (Array.isArray(data) ? data[0] : undefined) as PaymentCorrectionResult | undefined;
+      if (!correction || correction.operacion_id !== operationId || correction.pago_original_id !== payment.pago_id
+        || correction.credito_id !== credit.credito_id || !correction.pago_nuevo_id) {
+        return "No recibimos una confirmación válida. Verificá el historial antes de reintentar.";
+      }
+      setSuccess("Pago corregido correctamente. El original permanece anulado en el historial.");
+      try {
+        const { data: refreshed, error: refreshFailure } = await supabase.rpc("buscar_creditos_admin", { p_busqueda: credit.codigo_credito });
+        if (refreshFailure || !Array.isArray(refreshed)) throw new Error("Credit refresh failed");
+        const updated = (refreshed as Credit[]).find((item) => item.credito_id === credit.credito_id);
+        if (!updated) throw new Error("Credit missing from refresh");
+        setSelected(updated);
+        setResults((current) => current.map((item) => item.credito_id === updated.credito_id ? updated : item));
+        await loadPaymentHistory(updated.credito_id);
+      } catch {
+        historyRequest.current += 1;
+        setSelected(null);
+        setHistory([]);
+        setHistoryStatus("idle");
+        setResults([]);
+        setSearchStatus("idle");
+        setRefreshError("El pago ya fue corregido, pero no pudimos actualizar la ficha. Volvé a buscar el crédito. No vuelvas a corregir este pago.");
+      }
+      return null;
+    } catch {
+      return "Se interrumpió la comunicación. Verificá el historial antes de reintentar esta misma solicitud.";
+    } finally {
+      setCorrecting(false);
+      busy.current = false;
+    }
+  }
+
   async function handleAnnulment(payment: PaymentHistoryItem, reason: string, operationId: string) {
     if (busy.current || !selected) return "Hay otra operación en curso. Intentá nuevamente.";
     const credit = selected;
@@ -269,7 +322,7 @@ export default function AdminDashboard({ email }: { email: string }) {
             <div className="grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-2">
               <CreditDetail credit={selected} />
               <PaymentForm key={`${selected.credito_id}-${formVersion}`} disabled={submitting} refreshing={refreshing} onPayment={handlePayment} />
-              <div className="xl:col-span-2"><PaymentHistory status={historyStatus} payments={history} error={historyError} disabled={disabled} onAnnul={handleAnnulment} /></div>
+              <div className="xl:col-span-2"><PaymentHistory status={historyStatus} payments={history} error={historyError} disabled={disabled} onAnnul={handleAnnulment} onCorrect={handleCorrection} /></div>
               <ContractForm credit={selected} />
             </div>
           )}
