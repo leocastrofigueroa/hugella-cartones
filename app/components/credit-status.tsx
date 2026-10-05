@@ -3,6 +3,8 @@ const styles: Record<string, string> = {
   ADELANTADO: "border-sky-300 bg-sky-100 text-sky-950",
   "AL DIA": "border-[var(--hugella-gold)] bg-[var(--hugella-gold-light)] text-[var(--hugella-navy-deep)]",
   ATRASADO: "border-red-300 bg-red-100 text-red-950",
+  DEVUELTO: "border-slate-300 bg-slate-100 text-slate-950",
+  RETIRADO: "border-orange-300 bg-orange-100 text-orange-950",
   CANCELADO: "border-emerald-300 bg-emerald-100 text-emerald-950",
 };
 

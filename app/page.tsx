@@ -79,16 +79,47 @@ export default function ClientPage() {
   const [errors, setErrors] = useState<{ dni?: string; phone?: string }>({});
   const [credits, setCredits] = useState<CreditOption[] | null>(null);
   const inFlight = useRef(false);
+  const visibilityRequest = useRef(0);
   const dniInput = useRef<HTMLInputElement>(null);
   const phoneInput = useRef<HTMLInputElement>(null);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setCredits(restoreCredits()));
-    return () => cancelAnimationFrame(frame);
+    let current = true;
+    async function restoreAvailable() {
+      if (inFlight.current) return;
+      const requestId = ++visibilityRequest.current;
+      const cached = restoreCredits();
+      if (!cached.length) { if (current) setCredits([]); return; }
+      // Cached tokens are only navigation hints. Revalidate visibility server-side.
+      const supabase = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+          global: { fetch: (input, init) => fetch(input, { ...init, credentials: "omit", cache: "no-store" }) } },
+      );
+      try {
+        const available = await Promise.all(cached.map(async credit => {
+          const { data, error } = await supabase.rpc("get_carton_publico", { p_token: credit.access_token })
+            .abortSignal(AbortSignal.timeout(20_000));
+          if (error) throw new Error("Credit visibility unavailable");
+          return data ? credit : null;
+        }));
+        if (!current || inFlight.current || requestId !== visibilityRequest.current) return;
+        const visible = available.filter((credit): credit is CreditOption => credit !== null);
+        saveCredits(visible);
+        setCredits(visible);
+        if (!visible.length) setMessage("Actualmente no tenés créditos activos disponibles.");
+      } catch {
+        if (current && !inFlight.current && requestId === visibilityRequest.current) { setCredits([]); setMessage("Volvé a consultar tus créditos para verificar su disponibilidad."); }
+      }
+    }
+    void restoreAvailable();
+    window.addEventListener("focus", restoreAvailable);
+    return () => { current = false; window.removeEventListener("focus", restoreAvailable); };
   }, []);
 
   function consultOtherDetails() {
+    visibilityRequest.current += 1;
     clearCreditSession();
     setCredits([]);
     setDni("");
@@ -103,6 +134,7 @@ export default function ClientPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (inFlight.current) return;
+    visibilityRequest.current += 1;
     setMessage("");
     setCredits([]);
     clearCreditSession();
@@ -149,7 +181,7 @@ export default function ClientPage() {
       if (error || !Array.isArray(data) || !data.every(isCreditOption)) {
         setMessage("No pudimos realizar la consulta. Intentá nuevamente en unos minutos.");
       } else if (data.length === 0) {
-        setMessage("No encontramos créditos con los datos ingresados.");
+        setMessage("Actualmente no hay créditos activos disponibles con los datos ingresados.");
       } else {
         saveCredits(data);
         setCredits(data);

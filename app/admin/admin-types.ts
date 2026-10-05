@@ -72,3 +72,25 @@ export function localDate(date = new Date()) {
 }
 
 export const focusStyle = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hugella-gold)]";
+
+export type CreditClosureInput = {
+  p_tipo: "DEVUELTO" | "RETIRADO";
+  p_fecha: string;
+  p_motivo: string;
+  p_observaciones: string | null;
+};
+
+export type CreditClosure = {
+  credito_id: string;
+  operacion_id: string;
+  tipo: CreditClosureInput["p_tipo"];
+  fecha: string;
+  motivo: string;
+  observaciones: string | null;
+  actor_id: string;
+  created_at: string;
+};
+
+export function isClosedCredit(credit: Credit) {
+  return credit.estado === "DEVUELTO" || credit.estado === "RETIRADO";
+}

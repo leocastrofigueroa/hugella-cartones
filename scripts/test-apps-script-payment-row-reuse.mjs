@@ -19,7 +19,8 @@ function run(initial, payments, { formulaCells = [], changeBeforeWrite = false }
   for (let row = 1; row < rows.length; row++) for (const col of [2, 3, 5]) formulas[row][col] = '=ARRAYFORMULA(...)';
   for (const [row, col] of formulaCells) formulas[row - 1][col - 1] = '=""';
   const originalDerived = rows.slice(1).map((row, i) => [2, 3, 5].map(col => [row[col], formulas[i + 1][col]]));
-  const writes = [], marked = [];
+  const writes = [], marked = [], sortWrites = [];
+  let publishedRows, recalculatedRows;
   let inserted = 0, locked = false, releases = 0, error;
   const sheet = {
     getMaxRows: () => rows.length,
@@ -37,6 +38,17 @@ function run(initial, payments, { formulaCells = [], changeBeforeWrite = false }
       const read = data => data.slice(row - 1, row - 1 + count).map(values => values.slice(col - 1, col - 1 + width));
       return {
         getValues: () => read(rows), getFormulas: () => read(formulas),
+        setValues(values) {
+          assert.equal(locked, true);
+          assert.equal(width, 1);
+          assert.ok(manual.includes(col - 1), 'Sort must never write C, D or F');
+          sortWrites.push(col);
+          values.forEach(([value], offset) => {
+            const isFormula = typeof value === 'string' && value.startsWith('=');
+            rows[row - 1 + offset][col - 1] = isFormula ? '' : value;
+            formulas[row - 1 + offset][col - 1] = isFormula ? value : '';
+          });
+        },
         setValue(value) {
           assert.equal(locked, true);
           assert.ok(manual.includes(col - 1), 'Never write C, D or F');
@@ -47,6 +59,7 @@ function run(initial, payments, { formulaCells = [], changeBeforeWrite = false }
     }
   };
   const context = {
+    Date,
     Logger: { log() {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'local-fixture' }) },
     SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: name => {
@@ -66,12 +79,20 @@ function run(initial, payments, { formulaCells = [], changeBeforeWrite = false }
     else throw new Error('Unexpected request: ' + url);
     return { getResponseCode: () => 200, getContentText: () => JSON.stringify(result) };
   };
-  context.actualizarTodosLosCreditosDesdeCobros = () => {};
+  // Keep pre-sort positions for the existing hole-reuse assertions; run the real sort.
+  const sort = context.ordenarPagosPorFecha_;
+  context.ordenarPagosPorFecha_ = (...args) => {
+    publishedRows = rows.map(row => row.slice());
+    sort(...args);
+  };
+  context.actualizarTodosLosCreditosDesdeCobros = () => {
+    recalculatedRows = rows.map(row => row.slice());
+  };
   try { context.sincronizarPagosAdminHaciaSheets(); } catch (failure) { error = failure; }
   assert.equal(releases, 1);
   assert.equal(locked, false);
   assert.deepEqual(rows.slice(1, initial.length + 1).map((row, i) => [2, 3, 5].map(col => [row[col], formulas[i + 1][col]])), originalDerived);
-  return { rows, formulas, writes, marked, inserted, error };
+  return { rows: publishedRows || rows, finalRows: rows, formulas, writes, sortWrites, marked, inserted, error, recalculatedRows };
 }
 
 // Reuse the first valid interior hole, ignoring C/D/F array results.
@@ -96,7 +117,7 @@ for (const col of manual) {
   result = run([empty(), empty()], [payment(1)], { formulaCells: [[2, col + 1]] });
   assert.ifError(result.error);
   assert.equal(result.rows[1][8], '');
-  assert.equal(result.formulas[1][col], '=""');
+  assert.ok(result.formulas.some(row => row[col] === '=""'));
   assert.equal(result.rows[2][8], sheetId(payment(1)));
 }
 
@@ -133,3 +154,35 @@ assert.ifError(result.error);
 assert.equal(result.writes.length, 6);
 assert.equal(result.rows[2][8], sheetId(payment(2)));
 console.log('PASS: first free row, all six manual columns, blank-result formulas, preserved C/D/F, distinct batch rows, safe append, immediate recheck, ID deduplication and ScriptLock.');
+
+// Real publisher integration: sort complete tuples after reusing holes, before recalculation.
+const dated = (id, date, amount) => [new Date(date + 'T12:00:00'), 'CR-' + id,
+  'CLIENTE_ARRAY', 'PRODUCTO_ARRAY', amount, 'CUOTAS_ARRAY', 'Medio-' + id, 'Obs-' + id, id];
+const older = dated('PG-OLD', '2026-09-01', 123);
+const same = dated('PG-SAME', '2026-09-22', 456);
+const later = dated('PG-LATE', '2026-09-30', 789);
+result = run([later, empty(), older, same, empty(), empty()], [payment(1), payment(2)]);
+assert.ifError(result.error);
+assert.equal(result.inserted, 0);
+assert.deepEqual([...new Set(result.writes.map(([row]) => row))], [3, 6]);
+assert.deepEqual(result.finalRows.slice(1).map(row => row[8]),
+  ['PG-OLD', sheetId(payment(1)), 'PG-SAME', sheetId(payment(2)), 'PG-LATE', '']);
+const tuples = rows => rows.slice(1).map(row => manual.map(col => row[col]));
+assert.deepEqual(tuples(result.finalRows).sort((a, b) => String(a[5]).localeCompare(String(b[5]))),
+  tuples(result.rows).sort((a, b) => String(a[5]).localeCompare(String(b[5]))));
+const dates = result.finalRows.slice(1, 6).map(row => row[0].getTime());
+assert.ok(dates.every((date, i) => i === 0 || dates[i - 1] <= date));
+assert.ok(manual.every(col => result.finalRows[6][col] === ''));
+assert.deepEqual(result.sortWrites, [1, 2, 5, 7, 8, 9]);
+assert.deepEqual(result.recalculatedRows, result.finalRows);
+
+// No new payments: neither sorting nor recalculation, even if dates are out of order.
+for (const payments of [[], [payment(1)]]) {
+  const existing = dated(sheetId(payment(1)), '2026-09-30', 100);
+  result = run([existing, older, empty()], payments);
+  assert.ifError(result.error);
+  assert.deepEqual(result.sortWrites, []);
+  assert.equal(result.recalculatedRows, undefined);
+  assert.deepEqual(result.finalRows.slice(1), [existing, older, empty()]);
+}
+console.log('PASS: ascending dates, stable ties, intact manual tuples, untouched C/D/F, trailing empty rows, hole reuse and sorting before recalculation only when added.');

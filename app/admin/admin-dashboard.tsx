@@ -8,10 +8,11 @@ import styles from "./admin.module.css";
 import CreditSearch from "./credit-search";
 import CreditResults from "./credit-results";
 import CreditDetail from "./credit-detail";
+import CreditClosureForm from "./credit-closure";
 import ContractForm from "./contract-form";
 import PaymentForm from "./payment-form";
 import PaymentHistory from "./payment-history";
-import { focusStyle, money, type Credit, type PaymentAnnulmentResult, type PaymentCorrectionInput, type PaymentCorrectionResult, type PaymentHistoryItem, type PaymentInput, type PaymentResult } from "./admin-types";
+import { focusStyle, money, isClosedCredit, type CreditClosure, type CreditClosureInput, type Credit, type PaymentAnnulmentResult, type PaymentCorrectionInput, type PaymentCorrectionResult, type PaymentHistoryItem, type PaymentInput, type PaymentResult } from "./admin-types";
 
 type SearchStatus = "idle" | "loading" | "done" | "error";
 
@@ -33,10 +34,11 @@ export default function AdminDashboard({ email }: { email: string }) {
   const [historyStatus, setHistoryStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [historyError, setHistoryError] = useState("");
   const [formVersion, setFormVersion] = useState(0);
+  const [closing, setClosing] = useState(false);
   // Synchronous lock covers searches, payment submission, and its refresh.
   const busy = useRef(false);
   const historyRequest = useRef(0);
-  const disabled = searchStatus === "loading" || submitting || annulling || correcting;
+  const disabled = searchStatus === "loading" || submitting || annulling || correcting || closing;
 
   async function loadPaymentHistory(creditId: string) {
     const requestId = ++historyRequest.current;
@@ -273,6 +275,36 @@ export default function AdminDashboard({ email }: { email: string }) {
     }
   }
 
+  async function handleClosure(input: CreditClosureInput, operationId: string) {
+    if (busy.current || !selected) return "Hay otra operación en curso.";
+    const credit = selected;
+    busy.current = true;
+    setClosing(true);
+    setSuccess("");
+    setPaymentError("");
+    setRefreshError("");
+    try {
+      const { data, error } = await createClient().rpc("cerrar_credito_admin", {
+        p_credito_id: credit.credito_id, p_operacion_id: operationId, ...input,
+      });
+      if (error) return error.code === "42501" ? "Tu cuenta no tiene permisos para cerrar créditos."
+        : "No se pudo cerrar el crédito. Revisá la fecha (no puede preceder a un pago), el motivo y si ya fue cerrado.";
+      const closure = (Array.isArray(data) ? data[0] : undefined) as CreditClosure | undefined;
+      if (!closure || closure.credito_id !== credit.credito_id || closure.operacion_id !== operationId
+        || closure.tipo !== input.p_tipo) return "No recibimos una confirmación válida. Reintentá la misma solicitud.";
+      const updated = { ...credit, estado: closure.tipo, cuotas_pendientes: 0 };
+      setSelected(updated);
+      setResults(current => current.map(item => item.credito_id === updated.credito_id ? updated : item));
+      setSuccess(`Crédito ${credit.codigo_credito} cerrado como ${closure.tipo}. Los pagos históricos se conservaron.`);
+      return null;
+    } catch {
+      return "Se interrumpió la comunicación. Reintentá la misma solicitud para confirmar el cierre.";
+    } finally {
+      setClosing(false);
+      busy.current = false;
+    }
+  }
+
   async function signOut() {
     if (busy.current) return;
     const supabase = createClient();
@@ -321,7 +353,8 @@ export default function AdminDashboard({ email }: { email: string }) {
           {selected && (
             <div className="grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-2">
               <CreditDetail credit={selected} />
-              <PaymentForm key={`${selected.credito_id}-${formVersion}`} disabled={submitting} refreshing={refreshing} onPayment={handlePayment} />
+              {!isClosedCredit(selected) && <PaymentForm key={`${selected.credito_id}-${formVersion}`} disabled={disabled} refreshing={refreshing} onPayment={handlePayment} />}
+              <CreditClosureForm key={selected.credito_id} credit={selected} disabled={disabled} onClose={handleClosure} />
               <div className="xl:col-span-2"><PaymentHistory status={historyStatus} payments={history} error={historyError} disabled={disabled} onAnnul={handleAnnulment} onCorrect={handleCorrection} /></div>
               <ContractForm credit={selected} />
             </div>

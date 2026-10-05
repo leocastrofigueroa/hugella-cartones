@@ -673,6 +673,7 @@ function sincronizarPagosAdminHaciaSheets() {
     // =========================
 
     if (agregados > 0) {
+      ordenarPagosPorFecha_(cobros, columnasManuales, idx.fecha);
       SpreadsheetApp.flush();
       actualizarTodosLosCreditosDesdeCobros();
     }
@@ -685,6 +686,34 @@ function sincronizarPagosAdminHaciaSheets() {
       agregados +
       '.'
     );
+  });
+}
+
+// Ordena tuplas completas de columnas manuales; nunca escribe C, D ni F.
+function ordenarPagosPorFecha_(cobros, columnasManuales, columnaFecha) {
+  const cantidad = cobros.getMaxRows() - 1;
+  if (cantidad < 2) return;
+
+  const rango = cobros.getRange(2, 1, cantidad, 9);
+  const valores = rango.getValues();
+  const formulas = rango.getFormulas();
+  const filas = valores.map((fila, indice) => {
+    const fecha = fila[columnaFecha];
+    const tiempo = fecha instanceof Date ? fecha.getTime() : NaN;
+    return {
+      indice: indice,
+      vacia: columnasManuales.every(col => fila[col] === '' && formulas[indice][col] === ''),
+      tiempo: Number.isFinite(tiempo) ? tiempo : Infinity,
+      datos: columnasManuales.map(col => formulas[indice][col] || fila[col])
+    };
+  });
+  filas.sort((a, b) => Number(a.vacia) - Number(b.vacia) ||
+    (a.tiempo < b.tiempo ? -1 : a.tiempo > b.tiempo ? 1 : 0) || a.indice - b.indice);
+
+  if (filas.every((fila, indice) => fila.indice === indice)) return;
+  columnasManuales.forEach((columna, indice) => {
+    cobros.getRange(2, columna + 1, cantidad, 1)
+      .setValues(filas.map(fila => [fila.datos[indice]]));
   });
 }
 

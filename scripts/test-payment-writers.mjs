@@ -139,9 +139,12 @@ try {
   assert.equal(await paymentOrigin(result.pago_id), 'ADMIN');
   assert.deepEqual([result.cuotas_aplicadas, result.remanente, result.cuotas_pagadas, result.cuotas_pendientes],
     [0, '3000', 0, 2]);
+  // Make prior payments strictly older; clock_timestamp() can tie in PGlite.
+  await db.query(`update public.pagos set created_at=timestamptz '2026-09-09 10:00:00+00' where id=$1`, [result.pago_id]);
   result = await adminPayment(uuid(1), 2000);
   assert.deepEqual([result.cuotas_aplicadas, result.remanente, result.cuotas_pagadas, result.cuotas_pendientes],
     [1, '0', 1, 1]);
+  await db.query(`update public.pagos set created_at=timestamptz '2026-09-09 11:00:00+00' where id=$1`, [result.pago_id]);
   result = await adminPayment(uuid(1), 5000);
   assert.deepEqual([result.cuotas_aplicadas, result.remanente, result.cuotas_pagadas, result.cuotas_pendientes],
     [1, '0', 2, 0]);
@@ -155,9 +158,9 @@ try {
 
   // Stored CANCELADO and annulled money do not prevent a valid new payment.
   await db.query(`insert into public.creditos values ($1,'ADM-3',5000,2,date '2026-09-07','CANCELADO')`, [uuid(3)]);
-  await db.query(`insert into public.pagos(credito_id,fecha_pago,importe,medio_pago,cuotas_aplicadas,remanente,estado)
-    values ($1,date '2026-09-07',3000,'Efectivo',0,3000,'VALIDO'),
-           ($1,date '2026-09-08',7000,'Efectivo',2,0,'ANULADO')`, [uuid(3)]);
+  await db.query(`insert into public.pagos(credito_id,fecha_pago,importe,medio_pago,cuotas_aplicadas,remanente,estado,created_at)
+    values ($1,date '2026-09-07',3000,'Efectivo',0,3000,'VALIDO',timestamptz '2026-09-07 10:00:00+00'),
+           ($1,date '2026-09-08',7000,'Efectivo',2,0,'ANULADO',timestamptz '2026-09-08 10:00:00+00')`, [uuid(3)]);
   result = await adminPayment(uuid(3), 2000);
   assert.deepEqual([result.cuotas_aplicadas, result.remanente, result.cuotas_pagadas], [1, '0', 1]);
   assert.equal((await db.query(`select estado from public.creditos where id=$1`, [uuid(3)])).rows[0].estado, 'ATRASADO');

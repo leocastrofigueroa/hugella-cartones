@@ -1,5 +1,5 @@
 import CreditStatus from "../components/credit-status";
-import { money, type Credit } from "./admin-types";
+import { money, isClosedCredit, type Credit } from "./admin-types";
 
 export default function CreditDetail({ credit }: { credit: Credit }) {
   return (
@@ -13,7 +13,8 @@ export default function CreditDetail({ credit }: { credit: Credit }) {
         <div className="col-span-2 min-w-0"><dt className="text-sm text-white/75">Importe de cuota</dt><dd className="mt-1 text-3xl font-bold text-[var(--hugella-gold-light)] [overflow-wrap:anywhere]">{money.format(Number(credit.importe_cuota))}</dd></div>
         <div><dt className="text-sm text-white/75">Cuotas totales</dt><dd className="mt-1 text-2xl font-bold">{credit.cantidad_cuotas}</dd></div>
         <div><dt className="text-sm text-white/75">Cuotas pagadas</dt><dd className="mt-1 text-2xl font-bold text-[var(--hugella-gold-light)]">{credit.cuotas_pagadas}</dd></div>
-        <div className="col-span-2"><dt className="text-sm text-white/75">Cuotas pendientes</dt><dd className="mt-1 text-2xl font-bold">{credit.cuotas_pendientes}</dd></div>
+        <div className="col-span-2"><dt className="text-sm text-white/75">Cuotas pendientes de cobro</dt><dd className="mt-1 text-2xl font-bold">{credit.cuotas_pendientes}</dd></div>
+        {isClosedCredit(credit) && <div className="col-span-2"><dt className="text-sm text-white/75">Cuotas del plan original no pagadas (sin cobranza futura)</dt><dd className="mt-1 text-2xl font-bold">{Math.max(0, credit.cantidad_cuotas - credit.cuotas_pagadas)}</dd></div>}
       </dl>
     </section>
   );

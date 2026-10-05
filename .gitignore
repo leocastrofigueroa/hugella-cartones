@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# Temporary production diagnostics (keep out of commits)
+/supabase_anular_pago_admin_real.csv
+/supabase_rpc_real.csv
+
 # next.js
 /.next/
 /out/
