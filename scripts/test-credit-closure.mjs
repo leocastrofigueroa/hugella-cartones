@@ -137,6 +137,44 @@ try {
   assert.deepEqual(await snapshot(), before);
   assert.deepEqual(await metadata(), beforeMetadata, 'Existing RPC contracts/ACL preserved');
   assert.deepEqual(await annulmentContract(), confirmedAnnulmentContract, 'Confirmed annulment metadata/ACL preserved exactly');
+  // Extend the real closure wrapper locally; all remaining payment/closure tests
+  // below now exercise the new RPC contract too.
+  const differenceMigration = read('migrations/202610050001_buscar_creditos_admin_diferencia_cuotas.sql');
+  const oldSearch = await admin();
+  const baseDefinition = (await rows("select pg_get_functiondef('public.hugella_base_buscar_creditos_admin(text)'::regprocedure) ddl"))[0].ddl;
+  const wrapperDefinition = (await rows("select pg_get_functiondef('public.buscar_creditos_admin(text)'::regprocedure) ddl"))[0].ddl;
+  await db.exec(wrapperDefinition.replace('coalesce(c.tipo, r.estado)', "coalesce(c.tipo, 'UNKNOWN')"));
+  await assert.rejects(db.exec(differenceMigration), /contrato o wrapper/);
+  await db.exec('rollback');
+  await db.exec(wrapperDefinition);
+  // A dependent view must prevent recreation without losing the old RPC.
+  await db.exec("create view public.test_search_dependency as select * from public.buscar_creditos_admin('CR-')");
+  await assert.rejects(db.exec(differenceMigration), /depend/);
+  await db.exec('rollback');
+  assert.deepEqual(await admin(), oldSearch);
+  await db.exec('drop view public.test_search_dependency');
+  await db.exec(differenceMigration);
+  assert.deepEqual((await admin()).map(({ diferencia_cuotas, ...credit }) => {
+    assert.equal(typeof diferencia_cuotas, 'number'); return credit;
+  }), oldSearch, 'All existing RPC values and ordering unchanged');
+  assert.equal((await rows("select pg_get_functiondef('public.hugella_base_buscar_creditos_admin(text)'::regprocedure) ddl"))[0].ddl, baseDefinition);
+  await db.exec('begin');
+  await db.exec(`create or replace function public.hugella_fecha_comercial() returns date language sql stable set search_path='' as $$select date '2026-09-08'$$;
+    update public.creditos set fecha_inicio = date '2026-09-07';`);
+  for (const [paid, state, difference] of [[0, 'ATRASADO', -2], [2, 'AL DIA', 0], [4, 'ADELANTADO', 2], [30, 'CANCELADO', 28]]) {
+    await rows('update public.pagos set cuotas_aplicadas=$1 where credito_id=$2', [paid, id(1)]);
+    const result = (await rows("select * from public.buscar_creditos_admin('CR-1')"))[0];
+    assert.equal(result.estado, state); assert.equal(result.diferencia_cuotas, difference);
+  }
+  await rows("update public.pagos set estado='ANULADO', anulado_at=now(), anulado_por=$2, motivo_anulacion='Prueba' where credito_id=$1", [id(1), id(999)]);
+  assert.equal((await rows("select * from public.buscar_creditos_admin('CR-1')"))[0].diferencia_cuotas, -2, 'Annulled installments excluded');
+  // Sunday uses the same existing calendar helper as the state.
+  await db.exec(`create or replace function public.hugella_fecha_comercial() returns date language sql stable set search_path='' as $$select date '2026-09-13'$$;`);
+  assert.equal((await rows("select * from public.buscar_creditos_admin('CR-1')"))[0].diferencia_cuotas, -6);
+  await db.exec('rollback');
+  await assert.rejects(db.exec(differenceMigration), /contrato o wrapper/);
+  await db.exec('rollback');
+  console.log('PASS: diferencia_cuotas negative/zero/positive, paid cancellation, Sunday calendar, annulled payments, unchanged base RPC/results and safe migration replay.');
   // Authentication and normalization from the REAL PL/pgSQL access body survive.
   const unclosedPublic = await access();
   assert.deepEqual(await rows("select * from public.acceder_creditos_cliente('12.345.678','43-21')"), unclosedPublic);

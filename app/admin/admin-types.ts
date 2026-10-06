@@ -6,6 +6,7 @@ export type Credit = {
   importe_cuota: number | string;
   cantidad_cuotas: number;
   cuotas_pagadas: number;
+  diferencia_cuotas: number;
   cuotas_pendientes: number;
   estado: string;
 };
