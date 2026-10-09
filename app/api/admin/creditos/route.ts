@@ -22,12 +22,13 @@ export async function POST(request: Request) {
     try { body = await request.json(); } catch { return rejected("Solicitud inválida.", "VALIDATION", 400); }
     // A whitelist validator rejects extra fields, including code, state and token.
     if (body && typeof body === "object" && "p_dni" in body && typeof body.p_dni === "string") body.p_dni = normalizeDni(body.p_dni);
-    const validation = validateCreditCreation(body);
+    const validation = validateCreditCreation(body, true);
     if (validation) return rejected(validation, "VALIDATION", 422);
     const input = body as CreditCreationInput;
     const result = await supabase.rpc("crear_credito_admin", input);
     if (result.error) {
       const { code, message } = result.error;
+      if (code === "22023" && message === "Esta firma solo permite reintentar altas confirmadas; use el alta con inversión") return rejected("Esta pantalla quedó desactualizada. Abrí Nuevo crédito nuevamente para informar la inversión.", "LEGACY_CREATION", 409);
       if (code === "42501") return rejected("Tu cuenta no tiene permisos de administración.", "PERMISSION", 403);
       if (code === "23505" && message === "El DNI ya pertenece a un cliente; vuelva a buscarlo") return rejected("Ese DNI ya está registrado. Volvé a buscar al cliente.", "DNI_CONFLICT", 409);
       if (code === "22023" && message === "El cliente esperado ya no corresponde al DNI") return rejected("La identidad del cliente cambió. Volvé a buscarlo.", "IDENTITY", 409);

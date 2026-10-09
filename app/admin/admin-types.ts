@@ -102,6 +102,7 @@ export type AdminClient = {
   dni: string;
   telefono: string | null;
   domicilio: string | null;
+  ubicacion: string | null;
 };
 
 export type CreditCreationInput = {
@@ -116,6 +117,11 @@ export type CreditCreationInput = {
   p_fecha_inicio: string;
   p_cantidad_cuotas: number;
   p_importe_cuota: string;
+};
+
+export type NewCreditCreationInput = CreditCreationInput & {
+  p_inversion: string;
+  p_ubicacion: string | null;
 };
 
 export type CreditCreationResult = {
@@ -136,13 +142,16 @@ export function isAdminClient(value: unknown): value is AdminClient {
   return typeof c.id === "string" && uuidPattern.test(c.id)
     && typeof c.nombre === "string" && typeof c.dni === "string"
     && (c.telefono === null || typeof c.telefono === "string")
-    && (c.domicilio === null || typeof c.domicilio === "string");
+    && (c.domicilio === null || typeof c.domicilio === "string")
+    && (c.ubicacion === null || typeof c.ubicacion === "string");
 }
 
-export function validateCreditCreation(value: unknown): string | null {
+export function validateCreditCreation(value: unknown, allowLegacy = false): string | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "Solicitud inválida.";
   const p = value as Record<string, unknown>;
   const keys = ["p_operacion_id", "p_dni", "p_cliente_nuevo", "p_cliente_id_esperado", "p_nombre", "p_telefono", "p_domicilio", "p_producto", "p_fecha_inicio", "p_cantidad_cuotas", "p_importe_cuota"];
+  const legacy = allowLegacy && !Object.hasOwn(p, "p_inversion") && !Object.hasOwn(p, "p_ubicacion");
+  if (!legacy) keys.push("p_inversion", "p_ubicacion");
   if (Object.keys(p).length !== keys.length || keys.some(key => !Object.hasOwn(p, key))) return "Solicitud inválida.";
   if (typeof p.p_operacion_id !== "string" || !uuidPattern.test(p.p_operacion_id)) return "Identificador de operación inválido.";
   if (typeof p.p_dni !== "string" || !/^[0-9]{7,9}$/.test(p.p_dni)) return "El DNI debe contener entre 7 y 9 dígitos.";
@@ -161,6 +170,12 @@ export function validateCreditCreation(value: unknown): string | null {
     || p.p_cantidad_cuotas < 1 || p.p_cantidad_cuotas > 2147483647) return "Ingresá una cantidad entera de cuotas mayor a cero.";
   if (typeof p.p_importe_cuota !== "string" || !/^\d{1,10}(\.\d{1,2})?$/.test(p.p_importe_cuota)
     || Number(p.p_importe_cuota) <= 0 || Number(p.p_importe_cuota) > 9999999999.99) return "Ingresá un importe positivo con hasta dos decimales (máximo 9.999.999.999,99).";
+  if (!legacy) {
+    if (typeof p.p_inversion !== "string" || !/^\d{1,10}(\.\d{1,2})?$/.test(p.p_inversion)
+      || Number(p.p_inversion) <= 0 || Number(p.p_inversion) > 9999999999.99) return "Ingresá una inversión positiva con hasta dos decimales.";
+    if (p.p_ubicacion !== null && (typeof p.p_ubicacion !== "string" || !p.p_ubicacion.trim() || p.p_ubicacion.length > 2000)) return "Ubicación inválida (máximo 2000 caracteres).";
+    if (!p.p_cliente_nuevo && p.p_ubicacion !== null) return "El alta no permite modificar la ubicación del cliente existente.";
+  }
   return null;
 }
 
@@ -180,4 +195,12 @@ export function creationMoney(amount: string, installments = 1) {
   const [whole, decimal = ""] = amount.split(".");
   const cents = (BigInt(whole) * BigInt(100) + BigInt(decimal.padEnd(2, "0"))) * BigInt(installments);
   return `$ ${(cents / BigInt(100)).toLocaleString("es-AR")},${String(cents % BigInt(100)).padStart(2, "0")}`;
+}
+
+export function creditEconomics(amount: string, installments: number, investment: string) {
+  const cents = (value: string) => { const [whole, decimal = ""] = value.split("."); return BigInt(whole) * BigInt(100) + BigInt(decimal.padEnd(2, "0")); };
+  const unit = cents(amount), cost = cents(investment), profit = unit * BigInt(installments) - cost;
+  const absolute = profit < BigInt(0) ? -profit : profit;
+  return { ganancia: `${profit < BigInt(0) ? "−" : ""}$ ${(absolute / BigInt(100)).toLocaleString("es-AR")},${String(absolute % BigInt(100)).padStart(2, "0")}`,
+    recuperacion: String((cost + unit - BigInt(1)) / unit) };
 }

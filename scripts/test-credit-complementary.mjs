@@ -1,0 +1,141 @@
+// PostgreSQL WASM, synthetic fixtures only. No .env, network or remote database.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { PGlite } from '@electric-sql/pglite';
+const read = name => readFileSync(new URL(`../supabase/migrations/${name}`, import.meta.url), 'utf8');
+const db = new PGlite();
+const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const rows = async (sql,args=[]) => (await db.query(sql,args)).rows;
+const admin = async (user=1) => db.exec(`set role authenticated; set test.uid='${id(user)}'`);
+const owner = async () => db.exec('reset role');
+const oldSig = 'uuid,text,boolean,uuid,text,text,text,text,date,integer,numeric';
+const newSig = oldSig+',numeric,text';
+const oldArgs = [id(100),'20000001',true,null,'Cliente fixture',null,null,'Equipo fixture','2026-10-08',10,'100.00'];
+const call = (args, fresh=true) => rows(`select * from crear_credito_admin($1::uuid,$2::text,$3::boolean,$4::uuid,$5::text,$6::text,$7::text,$8::text,$9::date,$10::integer,$11::numeric${fresh?',$12::numeric,$13::text':''})`,args);
+const reject = (fn,code) => assert.rejects(fn,error => error.code===code);
+const snapshot = async () => { await owner(); const value=await rows(`select
+ (select jsonb_agg(to_jsonb(c) order by id) from clientes c) clientes,
+ (select jsonb_agg(to_jsonb(c) order by id) from creditos c) creditos,
+ (select jsonb_agg(to_jsonb(p) order by id) from pagos p) pagos,
+ (select jsonb_agg(to_jsonb(c) order by credito_id) from cierres_creditos c) cierres,
+ (select jsonb_agg(to_jsonb(o) order by operacion_id) from operaciones_altas_creditos o) operaciones`); await admin(); return value; };
+let assertions=0;
+const pass = name => { assertions++; console.log('PASS: '+name); };
+try {
+ await db.exec(`create role anon; create role authenticated; create role service_role;
+ create schema auth; create table auth.users(id uuid primary key);
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.uid',true),'')::uuid$$;
+ create function auth.role() returns text language sql stable as $$select current_setting('role')$$;
+ create table admin_users(user_id uuid primary key references auth.users);
+ create function es_admin_hugella() returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from public.admin_users where user_id=auth.uid())$$;
+ revoke all on function es_admin_hugella() from public,anon,authenticated,service_role;
+ create table clientes(id uuid primary key default gen_random_uuid(),nombre text not null,dni text,telefono text,domicilio text,created_at timestamptz default now());
+ create table creditos(id uuid primary key default gen_random_uuid(),cliente_id uuid not null references clientes,codigo text not null unique,producto text not null,fecha_inicio date not null,cantidad_cuotas integer not null check(cantidad_cuotas>0),importe_cuota numeric(12,2) not null check(importe_cuota>0),estado text not null default 'AL DIA',created_at timestamptz default now(),access_token uuid not null default gen_random_uuid() unique);
+ create table pagos(id uuid primary key,credito_id uuid references creditos,importe numeric(12,2),fecha_pago date,created_at timestamptz default now(),estado text not null default 'VALIDO',cuotas_aplicadas integer default 0,remanente numeric default 0);
+ create table cierres_creditos(credito_id uuid primary key references creditos,tipo text,fecha date);
+ alter table clientes enable row level security; alter table creditos enable row level security; alter table pagos enable row level security; alter table cierres_creditos enable row level security;
+ revoke all on clientes,creditos,pagos,cierres_creditos,admin_users from public,anon,authenticated,service_role;
+ grant usage on schema public,auth to anon,authenticated,service_role;
+ alter default privileges grant all on tables to anon,authenticated,service_role;
+ alter default privileges grant execute on functions to anon,service_role;
+ insert into auth.users values('${id(1)}'),('${id(2)}'); insert into admin_users values('${id(1)}');
+ insert into clientes(id,nombre,dni) values('${id(3)}','Histórico ficticio','12345678');
+ insert into creditos(cliente_id,codigo,producto,fecha_inicio,cantidad_cuotas,importe_cuota)
+ select '${id(3)}','CR-'||lpad(i::text,4,'0'),'Fixture','2026-10-08',10,100 from generate_series(1,43)i;
+ insert into creditos(id,cliente_id,codigo,producto,fecha_inicio,cantidad_cuotas,importe_cuota) values('${id(4)}','${id(3)}','CR-0047','Fixture','2026-10-08',10,100);
+ `);
+ for (const file of ['202609090001_estado_efectivo_helpers.sql','202610080002_clientes_dni_normalizado_unique.sql','202610080003_buscar_cliente_por_dni_admin.sql','202610080004_crear_credito_admin.sql']) await db.exec(read(file));
+ await db.exec(readFileSync(new URL('./fixtures/credit-origin-legacy.sql',import.meta.url),'utf8'));
+ await db.exec(`revoke all on function importar_credito_hugella(text,text,text,text,text,text,date,integer,numeric),actualizar_credito_desde_sheets(text,text,text,text,text,text,date,integer,numeric) from public,anon,authenticated,service_role;
+ grant execute on function importar_credito_hugella(text,text,text,text,text,text,date,integer,numeric),actualizar_credito_desde_sheets(text,text,text,text,text,text,date,integer,numeric) to authenticated;`);
+ for (const file of ['202610080005_procedencia_creditos.sql','202610080006_codigos_creditos_automaticos.sql','202609200001_recalcular_pagos_credito.sql']) await db.exec(read(file));
+ await admin(); const old=(await call(oldArgs,false))[0]; const before=await snapshot();
+ await owner(); for (const file of ['202610080007_inversion_ubicacion_altas.sql','202610080008_auditoria_ficha_credito.sql']) await db.exec(read(file));
+ await admin(); const after=await snapshot();
+ const stripped=structuredClone(after); for(const c of stripped[0].clientes) { assert.equal(c.ubicacion,null); delete c.ubicacion; }
+ for(const c of stripped[0].creditos) { assert.equal(c.inversion,null); delete c.inversion; }
+ assert.deepEqual(stripped,before); pass('migration preserves historical clients/credits/payments/closures/operations; NULL stays unknown');
+ assert.deepEqual((await call(oldArgs,false))[0],{...old,ya_procesada:true}); pass('old operation retry preserved without enrichment');
+ await reject(()=>call([...oldArgs.slice(0,1).map(()=>id(101)),...oldArgs.slice(1)],false),'22023'); pass('old signature cannot create');
+ await reject(()=>call([...oldArgs,500,null]),'22023'); pass('new signature cannot adopt old audit request');
+ const fresh=[id(200),'20000002',true,null,'Fixture nuevo',null,null,'Equipo','2026-10-08',10,'100',500,'Referencia fixture'];
+ for(const investment of [null,0,-1,'NaN','Infinity','1.234']) await reject(()=>call([...fresh.slice(0,11),investment,null]),'22023'); pass('missing/zero/negative/nonfinite/extra decimal investment rejected');
+ const created=(await call(fresh))[0]; assert.equal(created.cliente_creado,true);
+ assert.deepEqual((await call(fresh))[0],{...created,ya_procesada:true}); pass('new idempotency creates exactly once');
+ await owner(); assert.equal((await rows('select inversion from creditos where id=$1',[created.credito_id]))[0].inversion,'500.00');
+ assert.equal((await rows('select ubicacion from clientes where id=$1',[created.cliente_id]))[0].ubicacion,'Referencia fixture'); pass('investment/location persisted');
+ await admin(); await reject(()=>call([...fresh.slice(0,11),600,'Referencia fixture']),'22023'); pass('different request same operation rejected');
+ const existing=[id(201),'12345678',false,id(3),null,null,null,'Equipo','2026-10-08',10,100,200,null];
+ await reject(()=>call([...existing.slice(0,12),'Cambio silencioso']),'22023');
+ await call(existing); await call([id(202),'20000003',true,null,'Fixture',null,null,'Equipo','2026-10-08',1,100,50,null]);
+ await owner(); assert.equal((await rows('select ubicacion from clientes where id=$1',[id(3)]))[0].ubicacion,null); pass('existing client untouched; optional new location');
+ const paymentCredit=created.credito_id;
+ await db.query("insert into pagos(id,credito_id,importe,fecha_pago,estado) values($1,$2,50,'2026-10-08','VALIDO'),($3,$2,90,'2026-10-08','ANULADO')",[id(300),paymentCredit,id(301)]);
+ await db.query('select * from recalcular_pagos_credito($1)',[paymentCredit]);
+ await db.exec("create or replace function hugella_fecha_comercial() returns date language sql stable set search_path='' as $$select date '2026-10-08'$$");
+ await admin(); let ficha=(await rows('select obtener_ficha_credito_admin($1) ficha',[paymentCredit]))[0].ficha;
+ assert.equal(ficha.total_pagado_valido,50); assert.equal(ficha.cuotas_equivalentes_monetarias,0.5); assert.equal(ficha.cuotas_completas_pagadas,0); assert.equal(ficha.remanente_actual,50);
+ assert.equal(ficha.saldo_por_cuotas_completas,1000); assert.equal(ficha.saldo_monetario_real,950); assert.equal(ficha.importe_atrasado,50); assert.equal(ficha.ganancia_prevista,500); assert.equal(ficha.cuota_recuperacion_inversion,5); assert.equal(Object.hasOwn(ficha,'access_token'),false);
+ pass('partial payment, equivalences, remnant, both balances, monetary arrears and economics');
+ await owner(); await db.query("update pagos set estado='ANULADO' where id=$1",[id(300)]);
+ await db.query("insert into pagos(id,credito_id,importe,fecha_pago) values($1,$2,150,'2026-10-08')",[id(302),paymentCredit]);
+ await db.query('select * from recalcular_pagos_credito($1)',[paymentCredit]); await admin();
+ ficha=(await rows('select obtener_ficha_credito_admin($1) ficha',[paymentCredit]))[0].ficha;
+ assert.equal(ficha.total_pagado_valido,150); assert.equal(ficha.cuotas_completas_pagadas,1); assert.equal(ficha.remanente_actual,50); pass('replacement counts once; annulled originals excluded');
+ const noWrites=await snapshot(); await rows('select obtener_ficha_credito_admin($1)',[paymentCredit]); assert.deepEqual(await snapshot(),noWrites); pass('ficha is read-only');
+ for(const type of ['DEVUELTO','RETIRADO']) { await owner(); await db.query("insert into cierres_creditos values($1,$2,'2026-10-08') on conflict(credito_id) do update set tipo=excluded.tipo",[paymentCredit,type]); await admin(); ficha=(await rows('select obtener_ficha_credito_admin($1) ficha',[paymentCredit]))[0].ficha; assert.equal(ficha.estado,type); assert.equal(ficha.cobranza_futura_habilitada,false); assert.equal(ficha.calculos_solo_historicos,true); assert.equal(ficha.saldo_monetario_real,850); } pass('both closure types retain historical arithmetic, flag no future collection');
+ for(const [start,count,end] of [['2026-10-05',1,'2026-10-05'],['2026-10-05',7,'2026-10-12'],['2026-10-10',2,'2026-10-12'],['2026-10-09',3,'2026-10-12'],['2026-10-13',195,'2027-05-27'],['2026-10-11',1,'2026-10-11'],['2026-10-11',2,'2026-10-12']]) { const r=await rows('select hugella_fecha_fin_prevista($1::date,$2) result',[start,count]); assert.equal(r[0].result.toISOString().slice(0,10),end); } pass('date rules Monday/Saturday/Sunday crossing/one installment/months/195 synthetic plan');
+ const stableBefore=await snapshot();
+ const editArgs=[id(400),'INVERSION',old.credito_id,null,250,'Costo verificado fixture'];
+ // PostgREST KeyParams conversion: JSON body -> typed json_to_record -> named RPC args.
+ const columns='p_operacion_id uuid,p_tipo text,p_entidad_id uuid,p_valor_anterior_esperado jsonb,p_valor_nuevo jsonb,p_motivo text';
+ const names=columns.split(',').map(c=>c.split(' ')[0]);
+ const transport = body => rows(`select r.* from json_to_record($1::json) as a(${columns}) cross join lateral public.actualizar_dato_complementario_admin(${Object.keys(body).map(n=>`${n} => a.${n}`).join(',')}) r`,[JSON.stringify(body)]);
+ const payload = args => Object.fromEntries(names.map((name,i)=>[name,args[i]]));
+ const edit = args => transport(payload(args));
+ const decoded=await rows(`select p_valor_anterior_esperado is null as sql_null from json_to_record($1::json) as a(${columns})`,[JSON.stringify(payload(editArgs))]);
+ assert.equal(decoded[0].sql_null,true); pass('real PostgREST argument conversion maps JSON null to SQL NULL');
+ const absent=payload(editArgs); delete absent.p_valor_anterior_esperado;
+ await reject(()=>transport(absent),'42883');
+ for(const expected of ['null',{},[],false,-1,0,1.234]) await reject(()=>edit([id(409),'INVERSION',old.credito_id,expected,250,'Inválido']),'22023');
+ await reject(()=>edit([id(409),'UBICACION',old.cliente_id,123,'Referencia','Inválido']),'22023');
+ pass('missing required argument cannot resolve signature; invalid concrete values rejected');
+ const event=(await edit(editArgs))[0]; assert.equal(event.valor_anterior,null); assert.equal(event.valor_nuevo,250); assert.equal(event.actor_id,id(1)); assert.equal(event.operacion_id,id(400)); assert.equal(event.motivo,editArgs[5]); assert.equal(event.credito_id,old.credito_id); assert.equal(event.solicitud.anterior_esperado,null); assert.ok(event.created_at);
+ assert.deepEqual((await edit(editArgs))[0],event);
+ await reject(()=>edit([id(401),'INVERSION',old.credito_id,null,300,'Otro']),'40001');
+ await reject(()=>edit([id(400),'INVERSION',old.credito_id,null,300,'Otro']),'22023');
+ const locationEvent=(await edit([id(402),'UBICACION',old.cliente_id,null,'Referencia ficticia','Revisión fixture']))[0]; assert.equal(locationEvent.valor_anterior,null); assert.equal(locationEvent.valor_nuevo,'Referencia ficticia'); assert.equal(locationEvent.cliente_id,old.cliente_id); assert.equal(locationEvent.actor_id,id(1)); assert.equal(locationEvent.operacion_id,id(402)); assert.equal(locationEvent.motivo,'Revisión fixture');
+ await owner(); assert.equal((await rows('select count(*)::int n from cambios_datos_complementarios'))[0].n,2); await admin(); pass('transport NULL fills investment/location; stale NULL conflicts; audit exactly matches both changes');
+ const stableAfter=await snapshot(); const normalized=structuredClone(stableAfter);
+ for(const c of normalized[0].clientes) if(c.id===old.cliente_id)c.ubicacion=null;
+ for(const c of normalized[0].creditos) if(c.id===old.credito_id)c.inversion=null;
+ assert.deepEqual(normalized,stableBefore); pass('audited edits preserve original operation, identities, plans, payments and closures');
+ const retryAfterEdit=(await call(oldArgs,false))[0]; assert.equal(retryAfterEdit.ya_procesada,true); assert.deepEqual(await snapshot(),stableAfter); pass('old retry after complementary edits preserves updated facts and original request');
+ await reject(()=>edit([id(403),'INVERSION',paymentCredit,499,550,'Ajuste fixture']),'40001');
+ await edit([id(403),'INVERSION',paymentCredit,500,550,'Ajuste fixture']);
+ pass('correct concrete expectation succeeds; incorrect expectation conflicts');
+ const newRetrySnapshot=await snapshot(); assert.equal((await call(fresh))[0].ya_procesada,true); assert.deepEqual(await snapshot(),newRetrySnapshot); pass('new retry after cost edit never restores original investment');
+ const beforeAuditFailure=await snapshot();
+ await owner(); await db.exec(`alter table cambios_datos_complementarios add constraint fixture_audit_failure check(operacion_id<>'${id(410)}'::uuid)`); await admin();
+ await reject(()=>edit([id(410),'INVERSION',paymentCredit,550,560,'Fallo de auditoría fixture']),'23514');
+ assert.deepEqual(await snapshot(),beforeAuditFailure);
+ await owner(); assert.equal((await rows('select count(*)::int n from cambios_datos_complementarios'))[0].n,3);
+ await db.exec('alter table cambios_datos_complementarios drop constraint fixture_audit_failure'); await admin();
+ pass('audit INSERT failure rolls back the field UPDATE; no partial event');
+ const directRetry=(await rows('select * from actualizar_dato_complementario_admin($1,$2,$3,$4::jsonb,$5::jsonb,$6)',[editArgs[0],editArgs[1],editArgs[2],'null',JSON.stringify(editArgs[4]),editArgs[5]]))[0];
+ assert.deepEqual(directRetry,event); pass('SQL JSON null and transported SQL NULL share one canonical retry');
+ await owner(); await reject(()=>db.exec('update cambios_datos_complementarios set motivo=motivo'),'23514'); pass('immutable audit');
+ for(const role of ['anon','authenticated','service_role']) {
+  for(const signature of [`crear_credito_admin(${oldSig})`,`crear_credito_admin(${newSig})`,'obtener_ficha_credito_admin(uuid)','buscar_cliente_por_dni_admin_v2(text)','actualizar_dato_complementario_admin(uuid,text,uuid,jsonb,jsonb,text)']) assert.equal((await rows('select has_function_privilege($1,$2,$3) allowed',[role,signature,'EXECUTE']))[0].allowed,role==='authenticated');
+  assert.equal((await rows("select has_table_privilege($1,'cambios_datos_complementarios','SELECT') allowed",[role]))[0].allowed,false);
+ } pass('ACL denies anon/service_role RPCs and all direct audit reads');
+ await admin(2); await reject(()=>rows('select obtener_ficha_credito_admin($1)',[paymentCredit]),'42501'); await reject(()=>call(fresh),'42501');
+ await db.exec("set test.uid=''"); await reject(()=>rows('select obtener_ficha_credito_admin($1)',[paymentCredit]),'42501'); pass('non-admin/unauthenticated denied');
+ await owner();
+ await db.exec('grant select,update on creditos,clientes to authenticated; create policy fixture_credit_update on creditos for all to authenticated using(true) with check(true); create policy fixture_client_update on clientes for all to authenticated using(true) with check(true);');
+ await admin(); await reject(()=>db.query('update creditos set inversion=600 where id=$1',[paymentCredit]),'42501'); await reject(()=>db.query("update clientes set ubicacion='Eludir auditoría' where id=$1",[old.cliente_id]),'42501');
+ await owner(); await reject(()=>db.query("insert into creditos(cliente_id,codigo,producto,fecha_inicio,cantidad_cuotas,importe_cuota,origen) values($1,'CR-9990','F','2026-10-08',1,1,'ADMIN')",[old.cliente_id]),'23514');
+ await db.exec('drop policy fixture_credit_update on creditos; drop policy fixture_client_update on clientes; revoke select,update on creditos,clientes from authenticated;'); pass('direct field updates rejected even with permissive grants/RLS; new Admin INSERT requires investment');
+ await owner(); const sheets=(await rows("select count(*)::int n from creditos where origen='SHEETS' and inversion is null"))[0].n; assert.equal(sheets,44); pass('44 synthetic SHEETS credits unchanged');
+ console.log(`PASS: ${assertions} groups, actual migrations, isolated PostgreSQL WASM, no production.`);
+} finally { await db.close(); }
