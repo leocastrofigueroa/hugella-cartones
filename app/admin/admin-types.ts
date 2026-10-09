@@ -204,3 +204,37 @@ export function creditEconomics(amount: string, installments: number, investment
   return { ganancia: `${profit < BigInt(0) ? "−" : ""}$ ${(absolute / BigInt(100)).toLocaleString("es-AR")},${String(absolute % BigInt(100)).padStart(2, "0")}`,
     recuperacion: String((cost + unit - BigInt(1)) / unit) };
 }
+export type CreditFicha = {
+  credito_id: string; cliente_id: string; nombre: string; dni: string;
+  telefono: string | null; domicilio: string | null; ubicacion: string | null;
+  codigo: string; producto: string; origen: "SHEETS" | "ADMIN";
+  fecha_inicio: string; fecha_fin_prevista: string; fecha_evaluacion: string;
+  cantidad_cuotas: number; importe_cuota: number; total_contractual: number;
+  inversion: number | null; ganancia_prevista: number | null; cuota_recuperacion_inversion: number | null;
+  total_pagado_valido: number; cuotas_completas_pagadas: number; remanente_actual: number;
+  cuotas_equivalentes_monetarias: number; cuotas_plan_no_pagadas: number;
+  saldo_por_cuotas_completas: number; saldo_monetario_real: number;
+  cuotas_exigibles: number; diferencia_cuotas: number; cuotas_atrasadas: number; importe_atrasado: number;
+  estado: "AL DIA" | "ADELANTADO" | "ATRASADO" | "CANCELADO" | "DEVUELTO" | "RETIRADO";
+  tipo_cierre: "DEVUELTO" | "RETIRADO" | null; fecha_cierre: string | null;
+  cobranza_futura_habilitada: boolean; calculos_solo_historicos: boolean;
+};
+
+export function isCreditFicha(value: unknown, creditId: string): value is CreditFicha {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const f = value as Record<string, unknown>;
+  const date = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)
+    && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
+  const numeric = ["cantidad_cuotas", "importe_cuota", "total_contractual", "total_pagado_valido", "cuotas_completas_pagadas", "remanente_actual", "cuotas_equivalentes_monetarias", "cuotas_plan_no_pagadas", "saldo_por_cuotas_completas", "saldo_monetario_real", "cuotas_exigibles", "diferencia_cuotas", "cuotas_atrasadas", "importe_atrasado"];
+  return f.credito_id === creditId && typeof f.cliente_id === "string" && uuidPattern.test(f.cliente_id)
+    && ["nombre", "dni", "codigo", "producto"].every(k => typeof f[k] === "string")
+    && ["telefono", "domicilio", "ubicacion"].every(k => f[k] === null || typeof f[k] === "string")
+    && ["SHEETS", "ADMIN"].includes(String(f.origen))
+    && ["AL DIA", "ADELANTADO", "ATRASADO", "CANCELADO", "DEVUELTO", "RETIRADO"].includes(String(f.estado))
+    && ["fecha_inicio", "fecha_fin_prevista", "fecha_evaluacion"].every(k => date(f[k]))
+    && numeric.every(k => typeof f[k] === "number" && Number.isFinite(f[k]))
+    && ["inversion", "ganancia_prevista", "cuota_recuperacion_inversion"].every(k => f[k] === null || (typeof f[k] === "number" && Number.isFinite(f[k])))
+    && (f.tipo_cierre === null || f.tipo_cierre === "DEVUELTO" || f.tipo_cierre === "RETIRADO")
+    && (f.fecha_cierre === null || date(f.fecha_cierre))
+    && typeof f.cobranza_futura_habilitada === "boolean" && typeof f.calculos_solo_historicos === "boolean";
+}

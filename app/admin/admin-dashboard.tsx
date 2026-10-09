@@ -9,6 +9,7 @@ import styles from "./admin.module.css";
 import CreditSearch from "./credit-search";
 import CreditResults from "./credit-results";
 import CreditDetail from "./credit-detail";
+import CreditFullDetail from "./credit-full-detail";
 import CreditClosureForm from "./credit-closure";
 import ContractForm from "./contract-form";
 import PaymentForm from "./payment-form";
@@ -22,6 +23,7 @@ export default function AdminDashboard({ email }: { email: string }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Credit[]>([]);
   const [selected, setSelected] = useState<Credit | null>(null);
+  const [fichaVersion, setFichaVersion] = useState(0);
   const [searchStatus, setSearchStatus] = useState<SearchStatus>("idle");
   const [submitting, setSubmitting] = useState(false);
   const [correcting, setCorrecting] = useState(false);
@@ -137,6 +139,7 @@ export default function AdminDashboard({ email }: { email: string }) {
         return;
       }
 
+      setFichaVersion(version => version + 1);
       setSuccess(`Pago registrado para ${credit.codigo_credito}. Se aplicaron ${payment.cuotas_aplicadas} cuota${payment.cuotas_aplicadas === 1 ? "" : "s"} y el remanente acumulado es ${money.format(Number(payment.remanente))}.`);
       setFormVersion((version) => version + 1);
       setRefreshing(true);
@@ -192,6 +195,7 @@ export default function AdminDashboard({ email }: { email: string }) {
         || correction.credito_id !== credit.credito_id || !correction.pago_nuevo_id) {
         return "No recibimos una confirmación válida. Verificá el historial antes de reintentar.";
       }
+      setFichaVersion(version => version + 1);
       setSuccess("Pago corregido correctamente. El original permanece anulado en el historial.");
       try {
         const { data: refreshed, error: refreshFailure } = await supabase.rpc("buscar_creditos_admin", { p_busqueda: credit.codigo_credito });
@@ -247,6 +251,7 @@ export default function AdminDashboard({ email }: { email: string }) {
         return "No recibimos una confirmación válida. Verificá el historial antes de reintentar.";
       }
 
+      setFichaVersion(version => version + 1);
       setSuccess(`Pago de ${money.format(Number(payment.importe))} anulado correctamente.`);
 
       try {
@@ -293,6 +298,7 @@ export default function AdminDashboard({ email }: { email: string }) {
       const closure = (Array.isArray(data) ? data[0] : undefined) as CreditClosure | undefined;
       if (!closure || closure.credito_id !== credit.credito_id || closure.operacion_id !== operationId
         || closure.tipo !== input.p_tipo) return "No recibimos una confirmación válida. Reintentá la misma solicitud.";
+      setFichaVersion(version => version + 1);
       const updated = { ...credit, estado: closure.tipo, cuotas_pendientes: 0 };
       setSelected(updated);
       setResults(current => current.map(item => item.credito_id === updated.credito_id ? updated : item));
@@ -355,6 +361,7 @@ export default function AdminDashboard({ email }: { email: string }) {
             <div className="grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-2">
               <CreditDetail credit={selected} />
               {!isClosedCredit(selected) && <PaymentForm key={`${selected.credito_id}-${formVersion}`} disabled={disabled} refreshing={refreshing} onPayment={handlePayment} />}
+              <div className="min-w-0 xl:col-span-2"><CreditFullDetail key={selected.credito_id} creditId={selected.credito_id} refreshVersion={fichaVersion} /></div>
               <CreditClosureForm key={selected.credito_id} credit={selected} disabled={disabled} onClose={handleClosure} />
               <div className="xl:col-span-2"><PaymentHistory status={historyStatus} payments={history} error={historyError} disabled={disabled} onAnnul={handleAnnulment} onCorrect={handleCorrection} /></div>
               <ContractForm credit={selected} />
