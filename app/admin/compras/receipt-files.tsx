@@ -6,11 +6,12 @@ type Receipt = {id:string;nombre_original:string;mime_type:string;tamano_bytes:n
 const accept='image/jpeg,image/png,application/pdf';
 export function AttachmentPicker({files,onChange,disabled=false}:{files:Attachment[];onChange:(files:Attachment[])=>void;disabled?:boolean}) {
   const [error,setError]=useState('');
-  return <section className={`${cardStyle} space-y-3`}><h2 className="text-xl font-semibold">Comprobantes</h2><label className="block">Adjuntar archivo<input aria-label="Adjuntar archivo" type="file" accept={accept} multiple disabled={disabled} className="mt-2 block min-h-12 w-full min-w-0 text-sm" onChange={event=>{
+  const fileInput=useRef<HTMLInputElement>(null);
+  return <section className={`${cardStyle} space-y-3`}><h2 className="text-xl font-semibold">Comprobantes</h2><button type="button" className={buttonStyle} disabled={disabled} onClick={()=>fileInput.current?.click()}><span aria-hidden="true">📎 </span>Adjuntar archivos</button><input ref={fileInput} aria-label="Adjuntar archivos" type="file" accept={accept} multiple disabled={disabled} className="hidden" onChange={event=>{
     const selected=[...event.target.files??[]];
     if(selected.some(file=>!accept.split(',').includes(file.type)||!file.size||file.size>3*1024*1024)){setError('Elegí JPG, PNG o PDF, con contenido y hasta 3 MiB por archivo.');event.target.value='';return;}
     setError('');onChange([...files,...selected.map(file=>({id:crypto.randomUUID(),file}))]);event.target.value='';
-  }}/></label><p className="text-sm">JPG, PNG o PDF · hasta 3 MiB cada uno. Se guardan después de registrar la compra.</p>{error&&<p role="alert">{error}</p>}
+  }}/><p className="text-sm">JPG, PNG o PDF · hasta 3 MiB cada uno. Se guardan después de registrar la compra.</p>{error&&<p role="alert">{error}</p>}
     <ul className="space-y-2">{files.map(entry=><li className="flex min-w-0 flex-wrap items-center gap-3" key={entry.id}><span className="min-w-0 break-all">{entry.file.name} · {(entry.file.size/1024).toFixed(1)} KiB</span><button type="button" className="min-h-12 underline" disabled={disabled} onClick={()=>onChange(files.filter(file=>file.id!==entry.id))}>Quitar archivo</button></li>)}</ul></section>;
 }
 export default function ReceiptFiles({purchaseId,initialFiles=[],onBusyChange}:{purchaseId:string;initialFiles?:Attachment[];onBusyChange?:(busy:boolean)=>void}) {
