@@ -7,7 +7,7 @@ const accept='image/jpeg,image/png,application/pdf';
 export function AttachmentPicker({files,onChange,disabled=false}:{files:Attachment[];onChange:(files:Attachment[])=>void;disabled?:boolean}) {
   const [error,setError]=useState('');
   const fileInput=useRef<HTMLInputElement>(null);
-  return <section className={`${cardStyle} space-y-3`}><h2 className="text-xl font-semibold">Comprobantes</h2><button type="button" className={buttonStyle} disabled={disabled} onClick={()=>fileInput.current?.click()}><span aria-hidden="true">📎 </span>Adjuntar archivos</button><input ref={fileInput} aria-label="Adjuntar archivos" type="file" accept={accept} multiple disabled={disabled} className="hidden" onChange={event=>{
+  return <section className={`${cardStyle} space-y-3`}><h2 className="text-xl font-semibold">Comprobantes</h2><button type="button" className={buttonStyle} disabled={disabled} onClick={()=>fileInput.current?.click()}><span aria-hidden="true">📎 </span>Adjuntar archivos</button><input ref={fileInput} aria-label="Adjuntar archivos" type="file" accept={accept} multiple disabled={disabled} className="sr-only" style={{position:'absolute',width:1,height:1,overflow:'hidden',clipPath:'inset(50%)'}} onChange={event=>{
     const selected=[...event.target.files??[]];
     if(selected.some(file=>!accept.split(',').includes(file.type)||!file.size||file.size>3*1024*1024)){setError('Elegí JPG, PNG o PDF, con contenido y hasta 3 MiB por archivo.');event.target.value='';return;}
     setError('');onChange([...files,...selected.map(file=>({id:crypto.randomUUID(),file}))]);event.target.value='';
@@ -60,13 +60,13 @@ export default function ReceiptFiles({purchaseId,initialFiles=[],onBusyChange}:{
     }catch(cause){setError(cause instanceof Error?cause.message:'Resultado incierto.');}finally{lock.current=false;setBusy(false);}
   }
   function receipt(row:Receipt){return <li key={row.id} className="space-y-2 rounded-lg border p-3"><p className="break-all">{row.nombre_original} · {(row.tamano_bytes/1024).toFixed(1)} KiB</p><p className="text-sm">{row.estado} · {new Date(row.created_at).toLocaleString('es-AR')}</p>
-    {row.estado!=='PENDIENTE'&&<a className="mr-4 inline-flex min-h-12 items-center underline" target="_blank" rel="noopener noreferrer" href={`/api/admin/comprobantes/${row.id}/archivo`}>Ver</a>}
-    {row.estado!=='ANULADO'&&<button type="button" disabled={busy} className="min-h-12 underline" onClick={()=>{setAnnul(row.id);setReason('');}}>Anular comprobante</button>}
+    {row.estado!=='PENDIENTE'&&<a className="mr-3 inline-flex min-h-12 items-center rounded-lg border border-slate-300 bg-white px-5 py-3 font-semibold text-[var(--hugella-navy)]" target="_blank" rel="noopener noreferrer" href={`/api/admin/comprobantes/${row.id}/archivo`}>Ver comprobante</a>}
+    {row.estado!=='ANULADO'&&<button type="button" disabled={busy} className={buttonStyle} onClick={()=>{setAnnul(row.id);setReason('');}}>Anular comprobante</button>}
     {row.estado==='PENDIENTE'&&<div className="space-y-2"><p>No confirmado. Recuperá el archivo ya subido o seleccioná exactamente el original para reintentar con el mismo UUID.</p><button type="button" disabled={busy} className="min-h-12 underline" onClick={()=>void action(row.id,'recover')}>Recuperar archivo subido</button><label className="block">Reintentar archivo original<input type="file" accept={accept} disabled={busy} className="block min-h-12 w-full min-w-0" onChange={event=>{const file=event.target.files?.[0];event.target.value='';if(file)void upload([{id:row.id,file}]);}}/></label></div>}
     {row.estado==='ANULADO'&&<p className="break-words">Motivo: {row.motivo_anulacion} · {row.anulado_at&&new Date(row.anulado_at).toLocaleString('es-AR')} · actor {row.anulado_por}</p>}
   </li>;}
   return <section className="space-y-4"><h2 className="text-xl font-semibold">Comprobantes digitales</h2>{error&&<p role="alert">{error}</p>}{busy&&<p role="status">Procesando comprobantes. La compra ya está registrada.</p>}
-    <button type="button" className="min-h-12 underline" disabled={busy} onClick={()=>void load().catch(()=>setError('No se pudo consultar.'))}>Actualizar comprobantes</button>
+    <button type="button" className={buttonStyle} disabled={busy} onClick={()=>void load().catch(()=>setError('No se pudo consultar.'))}>Actualizar comprobantes</button>
     {loaded&&rows.length===0&&<p>Sin comprobantes guardados.</p>}
     <ul className="space-y-3">{rows.filter(row=>row.estado!=='ANULADO').map(receipt)}</ul>
     {rows.some(row=>row.estado==='ANULADO')&&<section><h3 className="font-semibold">Historial de anulados</h3><ul className="space-y-3">{rows.filter(row=>row.estado==='ANULADO').map(receipt)}</ul></section>}
