@@ -90,6 +90,8 @@ function sincronizarTodosLosCreditosASupabase() {
       const codigo = String(row[idx.codigo] || '').trim();
 
       if (!codigo) return;
+      const clasificacion = clasificarFilaCreditoHG_(mercaderia, index + 2);
+      if (!clasificacion.permitido || clasificacion.codigo !== codigo) return;
 
       const dni = String(row[idx.dni] || '').trim();
 
@@ -122,7 +124,7 @@ function sincronizarTodosLosCreditosASupabase() {
       };
 
       const creditoResponse = fetchConReintentos(
-        supabaseUrl + '/rest/v1/rpc/importar_credito_hugella',
+        supabaseUrl + '/rest/v1/rpc/actualizar_credito_desde_sheets',
         {
           method: 'post',
           headers: headers,
@@ -152,6 +154,12 @@ function sincronizarTodosLosCreditosASupabase() {
     // PAGOS
     // =========================
 
+    const {pagosProcesados,pagosOmitidos}=importarCobrosSheetsSinBloqueo_(cobros,supabaseUrl,headers);
+    Logger.log('Sincronización finalizada. Créditos procesados: '+creditosProcesados+'. Pagos procesados: '+pagosProcesados+'. Pagos omitidos: '+pagosOmitidos+'.');
+  });
+}
+
+function importarCobrosSheetsSinBloqueo_(cobros, supabaseUrl, headers) {
     const cobrosData = cobros.getDataRange().getValues();
     const headersCobros = cobrosData[0].map(h => String(h).trim());
 
@@ -277,17 +285,22 @@ function sincronizarTodosLosCreditosASupabase() {
       pagosProcesados++;
     });
 
-    Logger.log(
-      'Sincronización finalizada. Créditos procesados: ' +
-      creditosProcesados +
-      '. Pagos procesados: ' +
-      pagosProcesados +
-      '. Pagos omitidos: ' +
-      pagosOmitidos +
-      '.'
-    );
+    return {pagosProcesados, pagosOmitidos};
+}
+
+/** Periodic payments only. Same lock and RETIRAR ordering as the legacy entry. */
+function sincronizarPagosSheetsASupabase() {
+  return conBloqueoRegistroCobros_(function () {
+    procesarEventosRetirarSheets_();
+    const conexion=obtenerConexionSupabase_();
+    const cobros=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Registro de cobros');
+    if(!cobros) throw new Error('No encuentro Registro de cobros.');
+    const resultado=importarCobrosSheetsSinBloqueo_(cobros,conexion.url,conexion.headers);
+    Logger.log('Importación de cobros finalizada. Pagos procesados: '+resultado.pagosProcesados+'. Pagos omitidos: '+resultado.pagosOmitidos+'.');
+    return resultado;
   });
 }
+
 
 function migrarIdsPagosExistentes() {
   return conBloqueoRegistroCobros_(function () {
@@ -688,7 +701,6 @@ function sincronizarPagosAdminHaciaSheets() {
     );
   });
 }
-
 // Ordena tuplas completas de columnas manuales; nunca escribe C, D ni F.
 function ordenarPagosPorFecha_(cobros, columnasManuales, columnaFecha) {
   const cantidad = cobros.getMaxRows() - 1;
@@ -697,25 +709,39 @@ function ordenarPagosPorFecha_(cobros, columnasManuales, columnaFecha) {
   const rango = cobros.getRange(2, 1, cantidad, 9);
   const valores = rango.getValues();
   const formulas = rango.getFormulas();
+
   const filas = valores.map((fila, indice) => {
     const fecha = fila[columnaFecha];
     const tiempo = fecha instanceof Date ? fecha.getTime() : NaN;
+
     return {
       indice: indice,
-      vacia: columnasManuales.every(col => fila[col] === '' && formulas[indice][col] === ''),
+      vacia: columnasManuales.every(
+        col => fila[col] === '' && formulas[indice][col] === ''
+      ),
       tiempo: Number.isFinite(tiempo) ? tiempo : Infinity,
-      datos: columnasManuales.map(col => formulas[indice][col] || fila[col])
+      datos: columnasManuales.map(
+        col => formulas[indice][col] || fila[col]
+      )
     };
   });
-  filas.sort((a, b) => Number(a.vacia) - Number(b.vacia) ||
-    (a.tiempo < b.tiempo ? -1 : a.tiempo > b.tiempo ? 1 : 0) || a.indice - b.indice);
+
+  filas.sort(
+    (a, b) =>
+      Number(a.vacia) - Number(b.vacia) ||
+      (a.tiempo < b.tiempo ? -1 : a.tiempo > b.tiempo ? 1 : 0) ||
+      a.indice - b.indice
+  );
 
   if (filas.every((fila, indice) => fila.indice === indice)) return;
+
   columnasManuales.forEach((columna, indice) => {
-    cobros.getRange(2, columna + 1, cantidad, 1)
+    cobros
+      .getRange(2, columna + 1, cantidad, 1)
       .setValues(filas.map(fila => [fila.datos[indice]]));
   });
 }
+
 
 function fetchConReintentos(url, options, intentosMaximos = 5) {
   let ultimoError;
