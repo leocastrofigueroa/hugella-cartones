@@ -6,7 +6,9 @@ export type SupplierInput = { p_operacion_id: string; p_nombre: string; p_identi
 export type PurchaseRow = { id: string; tipo: 'MERCADERIA' | 'GASTO'; fecha: string; proveedor_nombre: string; moneda: string; comprobante: string | null; total: number; cantidad_items: number; created_at: string };
 export type PurchaseDetail = Omit<PurchaseRow, 'proveedor_nombre'> & { proveedor: Supplier; observaciones: string | null; items: (Item & { id: string; total: number })[] };
 export const inputStyle = 'mt-1 min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3 py-2';
-export const buttonStyle = 'min-h-12 rounded-lg bg-[var(--hugella-navy)] px-5 py-3 font-semibold text-white disabled:opacity-50';
+export const buttonInteractionStyle = 'cursor-pointer transition duration-150 not-disabled:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hugella-gold)] disabled:cursor-not-allowed disabled:opacity-50';
+export const buttonStyle = `${buttonInteractionStyle} min-h-12 rounded-lg bg-[var(--hugella-navy)] px-5 py-3 font-semibold text-white not-disabled:hover:bg-[var(--hugella-navy-secondary)]`;
+export const secondaryButtonInteractionStyle = `${buttonInteractionStyle} not-disabled:hover:bg-slate-100 not-disabled:hover:border-slate-400`;
 export const cardStyle = 'rounded-xl border border-slate-200 bg-white p-5 shadow-sm';
 
 // Seis decimales, sin coma de miles; aritmética exacta para la previsualización.

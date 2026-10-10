@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { cardStyle, money, type PurchaseDetail, type PurchaseRow } from './purchase-types';
+import { secondaryButtonInteractionStyle, cardStyle, money, type PurchaseDetail, type PurchaseRow } from './purchase-types';
 import ReceiptFiles from './receipt-files';
 export default function PurchasesView({ id }: { id?: string }) {
   const [rows, setRows] = useState<PurchaseRow[]>([]);
@@ -24,12 +24,12 @@ export default function PurchasesView({ id }: { id?: string }) {
     void load(); return () => { active = false; };
   }, [id, offset]);
   return <>
-    <div className="flex flex-wrap items-center justify-between gap-4"><h1 className="text-3xl font-bold">{id ? 'Detalle de compra / gasto' : 'Compras y gastos'}</h1><Link className="min-h-12 rounded-lg border px-4 py-3" href={id ? '/admin/compras' : '/admin/compras/nueva'}>{id ? 'Volver al listado' : 'Nueva compra / gasto'}</Link></div>
+    <div className="flex flex-wrap items-center justify-between gap-4"><h1 className="text-3xl font-bold">{id ? 'Detalle de compra / gasto' : 'Compras y gastos'}</h1><Link className={`${secondaryButtonInteractionStyle} min-h-12 rounded-lg border px-4 py-3`} href={id ? '/admin/compras' : '/admin/compras/nueva'}>{id ? 'Volver al listado' : 'Nueva compra / gasto'}</Link></div>
     {loading && <p role="status">Cargando…</p>}{error && <p role="alert">{error}</p>}
     {!loading && !error && !id && <>
       {rows.length === 0 && <p>No hay compras ni gastos registrados en esta página.</p>}
       <div className="grid gap-4 md:grid-cols-2">{rows.map(row => <Link key={row.id} className={`${cardStyle} block`} href={`/admin/compras/${row.id}`}><p className="font-semibold">{row.tipo === 'MERCADERIA' ? 'Mercadería' : 'Gasto'} · {row.fecha}</p><p>{row.proveedor_nombre}</p><p className="mt-2 text-xl font-bold">{money(row.total, row.moneda)} <span className="text-sm">{row.moneda}</span></p>{row.comprobante && <p>Comprobante: {row.comprobante}</p>}<span className="mt-3 inline-block underline">Ver detalle</span></Link>)}</div>
-      <div className="flex gap-3"><button className="min-h-12 rounded-lg border px-4 disabled:opacity-50" disabled={offset === 0} onClick={() => setOffset(offset - 50)}>Anterior</button><button className="min-h-12 rounded-lg border px-4 disabled:opacity-50" disabled={rows.length < 50} onClick={() => setOffset(offset + 50)}>Siguiente</button></div>
+      <div className="flex gap-3"><button className={`${secondaryButtonInteractionStyle} min-h-12 rounded-lg border px-4 disabled:opacity-50`} disabled={offset === 0} onClick={() => setOffset(offset - 50)}>Anterior</button><button className={`${secondaryButtonInteractionStyle} min-h-12 rounded-lg border px-4 disabled:opacity-50`} disabled={rows.length < 50} onClick={() => setOffset(offset + 50)}>Siguiente</button></div>
     </>}
     {!loading && !error && detail && <div className="space-y-5">
       <section className={cardStyle}><p className="text-sm">Registro confirmado</p><h2 className="text-xl font-bold">{detail.tipo === 'MERCADERIA' ? 'Mercadería' : 'Gasto'} · {detail.fecha}</h2><p>Proveedor: {detail.proveedor.nombre}</p>{detail.proveedor.identificacion_fiscal && <p>Identificación fiscal: {detail.proveedor.identificacion_fiscal}</p>}<p>Moneda: {detail.moneda}</p><p>Comprobante: {detail.comprobante || '—'}</p><p className="whitespace-pre-wrap">Observaciones: {detail.observaciones || '—'}</p><p>Registrado: {new Date(detail.created_at).toLocaleString('es-AR')}</p></section>
