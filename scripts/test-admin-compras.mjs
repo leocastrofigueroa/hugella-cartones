@@ -60,7 +60,7 @@ async function submit(id){await act(async()=>query('#'+id).dispatchEvent(new dom
 async function click(label){await act(async()=>{const el=[...document.querySelectorAll('button')].find(b=>b.textContent===label);assert.ok(el,label);el.click();});}
 fetchHandler=async()=>Response.json({result:[]});await mount(View);check('empty list',()=>assert.match(text(),/No hay compras/));
 fetchHandler=async()=>Response.json({result:[detail]});await mount(View);check('populated list/detail link',()=>{assert.match(text(),/Proveedor fixture/);assert.ok(query(`a[href="/admin/compras/${id(3)}"]`));});
-fetchHandler=async()=>Response.json({result:detail});await mount(View,{id:id(3)});check('detail confirmed and no mutation buttons',()=>{assert.match(text(),/TOTAL GENERAL/);assert.match(text(),/Producto/);assert.equal(document.querySelectorAll('button').length,0);});
+fetchHandler=async()=>Response.json({result:detail});await mount(View,{id:id(3)});check('detail confirmed without purchase editing; receipt section available',()=>{assert.match(text(),/TOTAL GENERAL/);assert.match(text(),/Producto/);assert.doesNotMatch(text(),/Editar compra|Eliminar compra/);assert.match(text(),/Comprobantes digitales/);});
 await mount(Form);await submit('purchase-data');check('supplier required UI',()=>assert.match(text(),/Seleccioná un proveedor/));
 fetchHandler=async()=>Response.json({result:[supplier]});await set('supplier-search','fixture');await submit('supplier-search');await click('Proveedor fixture');check('supplier selection',()=>assert.match(text(),/Seleccionado: Proveedor fixture/));
 await set('fecha','2026-10-10');await set('descripcion-0','Producto');await set('cantidad-0','3');await set('costo-0','0,335');check('preview total',()=>assert.match(text(),/TOTAL: 1,01 ARS/));

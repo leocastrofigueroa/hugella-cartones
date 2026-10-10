@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { buttonStyle, cardStyle, decimalNumber, displayCents, inputStyle, money, subtotal, validatePurchase, type PurchaseDetail, type PurchaseInput, type Supplier, type SupplierInput } from './purchase-types';
+import ReceiptFiles, { AttachmentPicker, type Attachment } from './receipt-files';
 type DraftItem = { descripcion: string; cantidad: string; costo: string };
 type Intent = { request: PurchaseInput; supplier: Supplier; cents: bigint };
 const emptyItem = (): DraftItem => ({ descripcion: '', cantidad: '1', costo: '' });
@@ -19,6 +20,8 @@ export default function NewPurchaseForm() {
   const [intent, setIntent] = useState<Intent | null>(null);
   const [sent, setSent] = useState(false); const [busy, setBusy] = useState(false);
   const [error, setError] = useState(''); const [result, setResult] = useState<PurchaseDetail | null>(null);
+  const [attachmentsBusy,setAttachmentsBusy] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const lock = useRef(false);
   const hasResult = useRef(false);
   useEffect(() => {
@@ -75,7 +78,7 @@ export default function NewPurchaseForm() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo confirmar el registro.'); }
     finally { lock.current = false; setBusy(false); }
   }
-  if (result) return <section className={`${cardStyle} space-y-4`} role="status"><h2 className="text-xl font-bold">{result.tipo === 'MERCADERIA' ? 'Compra registrada correctamente' : 'Gasto registrado correctamente'}</h2><p>{result.proveedor.nombre} · {result.fecha}</p><p className="text-2xl font-bold">{money(result.total, result.moneda)} · {result.moneda}</p><div className="flex flex-wrap gap-4"><Link className="min-h-12 underline" href={`/admin/compras/${result.id}`}>Ver detalle</Link><button className={buttonStyle} onClick={() => { hasResult.current = false; setResult(null); setIntent(null); setSent(false); setItems([emptyItem()]); setComprobante(''); setObservaciones(''); }}>Registrar otra</button></div></section>;
+  if (result) return <section className={`${cardStyle} space-y-4`} role="status"><h2 className="text-xl font-bold">{result.tipo === 'MERCADERIA' ? 'Compra registrada correctamente' : 'Gasto registrado correctamente'}</h2><p>{result.proveedor.nombre} · {result.fecha}</p><p className="text-2xl font-bold">{money(result.total, result.moneda)} · {result.moneda}</p><div className="flex flex-wrap gap-4"><Link className="min-h-12 underline" href={`/admin/compras/${result.id}`} onClick={event=>{if(attachmentsBusy)event.preventDefault();}}>Ver detalle</Link><button className={buttonStyle} disabled={attachmentsBusy} onClick={() => { hasResult.current = false; setResult(null); setIntent(null); setSent(false); setItems([emptyItem()]); setComprobante(''); setObservaciones(''); setAttachments([]); }}>Registrar otra</button></div><ReceiptFiles key={result.id} purchaseId={result.id} initialFiles={attachments} onBusyChange={setAttachmentsBusy}/></section>;
   return <div className="space-y-5">
     <Link href="/admin/compras" aria-disabled={busy || sent || !!supplierIntent} onClick={event => { if (busy || sent || supplierIntent) event.preventDefault(); }} className="underline">Volver al listado</Link>
     {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4">{error}</p>}
@@ -95,6 +98,7 @@ export default function NewPurchaseForm() {
         <button type="button" className="min-h-12 underline" disabled={items.length>=1000} onClick={() => setItems([...items,emptyItem()])}>+ Agregar ítem</button><p className="text-2xl font-bold">TOTAL: {displayCents(total)} ARS</p><p className="text-sm">Previsualización. El total definitivo se calcula al registrar.</p>
       </fieldset><button className={buttonStyle} disabled={busy || !!supplierIntent}>Revisar antes de guardar</button></form>
     </>}
-    {intent && <form id="purchase-confirm" className={`${cardStyle} space-y-4`} onSubmit={save}><h2 className="text-xl font-bold">Confirmar compra / gasto</h2><p>{intent.request.p_tipo === 'MERCADERIA' ? 'Mercadería' : 'Gasto'} · {intent.supplier.nombre} · {intent.request.p_fecha}</p><ol className="space-y-2">{intent.request.p_items.map(item => <li key={item.posicion}>{item.posicion}. {item.descripcion} · {item.cantidad} × {item.costo_unitario} · {displayCents(subtotal(String(item.cantidad),String(item.costo_unitario))!)} ARS</li>)}</ol><p className="text-2xl font-bold">TOTAL: {displayCents(intent.cents)} ARS</p><p>Comprobante: {intent.request.p_comprobante || '—'}</p><p>Observaciones: {intent.request.p_observaciones || '—'}</p><div className="flex flex-wrap gap-3"><button className={buttonStyle} disabled={busy}>{busy ? 'Guardando…' : sent ? 'Reintentar misma solicitud' : 'Confirmar y guardar'}</button>{!sent && <button type="button" className="min-h-12 rounded-lg border px-4" onClick={() => setIntent(null)}>Volver a editar</button>}</div>{sent && <p>No cierres ni recargues esta página hasta resolver el resultado: el UUID y la solicitud se conservan en esta página.</p>}</form>}
+    {!intent && <AttachmentPicker files={attachments} onChange={setAttachments} disabled={busy || !!supplierIntent}/>}
+    {intent && <form id="purchase-confirm" className={`${cardStyle} space-y-4`} onSubmit={save}><h2 className="text-xl font-bold">Confirmar compra / gasto</h2><p>{intent.request.p_tipo === 'MERCADERIA' ? 'Mercadería' : 'Gasto'} · {intent.supplier.nombre} · {intent.request.p_fecha}</p><ol className="space-y-2">{intent.request.p_items.map(item => <li key={item.posicion}>{item.posicion}. {item.descripcion} · {item.cantidad} × {item.costo_unitario} · {displayCents(subtotal(String(item.cantidad),String(item.costo_unitario))!)} ARS</li>)}</ol><p className="text-2xl font-bold">TOTAL: {displayCents(intent.cents)} ARS</p><p>Comprobante: {intent.request.p_comprobante || '—'}</p><p>Archivos adjuntos: {attachments.length}. Se subirán después de registrar.</p><p>Observaciones: {intent.request.p_observaciones || '—'}</p><div className="flex flex-wrap gap-3"><button className={buttonStyle} disabled={busy}>{busy ? 'Guardando…' : sent ? 'Reintentar misma solicitud' : 'Confirmar y guardar'}</button>{!sent && <button type="button" className="min-h-12 rounded-lg border px-4" onClick={() => setIntent(null)}>Volver a editar</button>}</div>{sent && <p>No cierres ni recargues esta página hasta resolver el resultado: el UUID y la solicitud se conservan en esta página.</p>}</form>}
   </div>;
 }

@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { cardStyle, money, type PurchaseDetail, type PurchaseRow } from './purchase-types';
+import ReceiptFiles from './receipt-files';
 export default function PurchasesView({ id }: { id?: string }) {
   const [rows, setRows] = useState<PurchaseRow[]>([]);
   const [detail, setDetail] = useState<PurchaseDetail | null>(null);
@@ -34,6 +35,7 @@ export default function PurchasesView({ id }: { id?: string }) {
       <section className={cardStyle}><p className="text-sm">Registro confirmado</p><h2 className="text-xl font-bold">{detail.tipo === 'MERCADERIA' ? 'Mercadería' : 'Gasto'} · {detail.fecha}</h2><p>Proveedor: {detail.proveedor.nombre}</p>{detail.proveedor.identificacion_fiscal && <p>Identificación fiscal: {detail.proveedor.identificacion_fiscal}</p>}<p>Moneda: {detail.moneda}</p><p>Comprobante: {detail.comprobante || '—'}</p><p className="whitespace-pre-wrap">Observaciones: {detail.observaciones || '—'}</p><p>Registrado: {new Date(detail.created_at).toLocaleString('es-AR')}</p></section>
       <section className="space-y-3"><h2 className="text-xl font-semibold">Ítems</h2>{detail.items.map(item => <article className={cardStyle} key={item.id}><h3 className="font-semibold">{item.posicion}. {item.descripcion}</h3><p>Cantidad: {item.cantidad}</p><p>Costo unitario: {new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(item.costo_unitario)} {detail.moneda}</p><p className="font-bold">Total: {money(item.total, detail.moneda)}</p></article>)}</section>
       <p className="text-2xl font-bold">TOTAL GENERAL: {money(detail.total, detail.moneda)} · {detail.moneda}</p>
+      <ReceiptFiles key={detail.id} purchaseId={detail.id}/>
     </div>}
   </>;
 }
