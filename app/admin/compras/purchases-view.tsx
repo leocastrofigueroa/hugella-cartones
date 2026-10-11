@@ -25,6 +25,7 @@ export default function PurchasesView({ id }: { id?: string }) {
   }, [id, offset]);
   return <>
     <div className="flex flex-wrap items-center justify-between gap-4"><h1 className="text-3xl font-bold">{id ? 'Detalle de compra / gasto' : 'Compras y gastos'}</h1><Link className={`${secondaryButtonInteractionStyle} min-h-12 rounded-lg border px-4 py-3`} href={id ? '/admin/compras' : '/admin/compras/nueva'}>{id ? 'Volver al listado' : 'Nueva compra / gasto'}</Link></div>
+    {!id && <Link className={`${secondaryButtonInteractionStyle} inline-flex min-h-12 items-center rounded-lg border px-4 py-3`} href="/admin/compras/tarjetas">Tarjetas y resúmenes</Link>}
     {loading && <p role="status">Cargando…</p>}{error && <p role="alert">{error}</p>}
     {!loading && !error && !id && <>
       {rows.length === 0 && <p>No hay compras ni gastos registrados en esta página.</p>}

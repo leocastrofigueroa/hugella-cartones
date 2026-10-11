@@ -15,11 +15,19 @@ if(name.startsWith('.')){const target=path.resolve(path.dirname(file),name);retu
 return require(name);}});cache.set(file,mod.exports);return mod.exports;}
 const Form=load('app/admin/compras/new-purchase-form.tsx').default;
 const css=(await postcss([tailwind({base:process.cwd()})]).process(readFileSync('app/globals.css','utf8'),{from:path.resolve('app/globals.css')})).css+readFileSync('app/admin/admin.module.css','utf8').replaceAll('.root','.purchase-root');
-const rendered=renderToStaticMarkup(React.createElement(Form));
+const Payments=load('app/admin/compras/payment-fields.tsx').default;
+const {emptyPayment}=load('app/admin/compras/payment-types.ts');
+const rendered=renderToStaticMarkup(React.createElement(React.Fragment,null,
+ React.createElement(Form),
+ React.createElement(load('app/admin/compras/summary-payment.tsx').default,{row:{periodo_id:'00000000-0000-4000-8000-000000000001',fecha_cierre:'2026-10-22',fecha_vencimiento:'2026-11-02',total_obligaciones_hugella:300,total_pagado:100,saldo:200,estado:'PAGO_PARCIAL'},card:'Visa fixture',onDone:()=>{},onPending:()=>{}}),
+ React.createElement(load('app/admin/compras/cards-view.tsx').default),
+ React.createElement(Payments,{total:10000n,mode:'TARJETA_CREDITO',drafts:[{...emptyPayment(),cuotas:'3'}],onMode:()=>{},onChange:()=>{}}),
+ React.createElement(Payments,{total:10000n,mode:'COMBINADO',drafts:[{...emptyPayment(),importe:'40'},{...emptyPayment(),importe:'60',medio:'TARJETA_CREDITO',cuotas:'3'}],onMode:()=>{},onChange:()=>{}})
+));
 const temp=mkdtempSync('/private/tmp/hugella-purchases-layout-');
 const child=`<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><main class="purchase-root"><div class="mx-auto max-w-5xl px-5 py-8">${rendered}</div></main></body></html>`;
 const widths=[320,375,390,430,768,1024,1280];
-const html=`<!doctype html><html><body>${widths.map(w=>`<iframe data-width="${w}" style="width:${w}px;height:1200px;border:0" srcdoc="${child.replaceAll('&','&amp;').replaceAll('"','&quot;')}"></iframe>`).join('')}<output id="metrics"></output><script>window.addEventListener('load',()=>{document.getElementById('metrics').textContent=JSON.stringify([...document.querySelectorAll('iframe')].map(f=>({width:Number(f.dataset.width),scroll:f.contentDocument.documentElement.scrollWidth,inputs:[...f.contentDocument.querySelectorAll('input,select,button')].every(e=>e.getBoundingClientRect().height>=44)})));});</script></body></html>`;
+const html=`<!doctype html><html><body>${widths.map(w=>`<iframe data-width="${w}" style="width:${w}px;height:1200px;border:0" srcdoc="${child.replaceAll('&','&amp;').replaceAll('"','&quot;')}"></iframe>`).join('')}<output id="metrics"></output><script>window.addEventListener('load',()=>{document.getElementById('metrics').textContent=JSON.stringify([...document.querySelectorAll('iframe')].map(f=>({width:Number(f.dataset.width),scroll:f.contentDocument.documentElement.scrollWidth,inputs:[...f.contentDocument.querySelectorAll('input,select,button')].filter(e=>!e.classList.contains('sr-only')).every(e=>e.getBoundingClientRect().height>=44)})));});</script></body></html>`;
 writeFileSync(path.join(temp,'test.html'),html);
 const output=await new Promise((resolve,reject)=>{
   const child=spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless','--disable-gpu','--disable-background-networking','--disable-component-update','--disable-sync','--no-first-run','--no-default-browser-check',`--user-data-dir=${temp}/profile`,'--virtual-time-budget=1500','--dump-dom',`file://${temp}/test.html`],{stdio:['ignore','pipe','ignore']});

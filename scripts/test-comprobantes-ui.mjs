@@ -45,17 +45,17 @@ const supplier={id:id(2),nombre:'Proveedor',identificacion_fiscal:null,contacto:
 let ordered=[];fetchHandler=async(url,opts)=>{
  ordered.push(url);
  if(url.startsWith('/api/admin/proveedores'))return Response.json({result:[supplier]});
- if(url==='/api/admin/compras'&&opts?.method==='POST')return Response.json({result:{compra_gasto_id:id(10)}});
+ if(url==='/api/admin/compras/financiadas'&&opts?.method==='POST')return Response.json({result:{compra_id:id(10)}});
  if(url===`/api/admin/compras/${id(10)}`)return Response.json({result:detail});
  if(opts?.body instanceof FormData){const op=opts.body.get('id');return Response.json({result:{id:op,estado:'DISPONIBLE'}});}
  return Response.json({result:[]});
 };
-await mount(Form);await choose('input[type="file"]',[file]);check('new form selection does not upload/create receipt',()=>assert.equal(ordered.length,0));
+await mount(Form);await choose('input[type="file"]',[file]);check('new form selection does not upload/create receipt',()=>assert.ok(ordered.every(url=>url==='/api/admin/compras/tarjetas')));
 await act(async()=>document.querySelector('#supplier-search').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));await click('Proveedor');
 async function set(name,value){await act(async()=>{const input=document.querySelector(`[name="${name}"]`);Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value').set.call(input,value);input.dispatchEvent(new dom.window.Event('input',{bubbles:true}));});}
-await set('fecha','2026-10-10');await set('descripcion-0','Gasto');await set('costo-0','10');
+await set('fecha','2026-10-10');await set('descripcion-0','Gasto');await set('costo-0','10');await set('fecha-pago-0','2026-10-10');
 await act(async()=>document.querySelector('#purchase-data').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
 check('review retains files without uploading',()=>{assert.match(text(),/Archivos adjuntos: 1/);assert.equal(ordered.some(url=>url.includes('/comprobantes')),false);});
 await act(async()=>document.querySelector('#purchase-confirm').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
-check('purchase saved before attachments, result preserved',()=>{assert.match(text(),/Gasto registrado correctamente/);assert.ok(ordered.indexOf('/api/admin/compras')<ordered.findIndex(url=>url.includes('/comprobantes')));assert.match(text(),/Guardado/);});
+check('purchase saved before attachments, result preserved',()=>{assert.match(text(),/Gasto registrado correctamente/);assert.ok(ordered.indexOf('/api/admin/compras/financiadas')>=0 && ordered.indexOf('/api/admin/compras/financiadas')<ordered.findIndex(url=>url.includes('/comprobantes')));assert.match(text(),/Guardado/);});
 await act(async()=>root.unmount());console.log(`PASS: ${checks} UI groups, offline only`);

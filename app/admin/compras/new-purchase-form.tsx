@@ -1,10 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { secondaryButtonInteractionStyle, buttonStyle, cardStyle, decimalNumber, displayCents, inputStyle, money, subtotal, validatePurchase, type PurchaseDetail, type PurchaseInput, type Supplier, type SupplierInput } from './purchase-types';
+import { secondaryButtonInteractionStyle, buttonStyle, cardStyle, decimalNumber, displayCents, inputStyle, money, subtotal, type PurchaseDetail, type Supplier, type SupplierInput } from './purchase-types';
 import ReceiptFiles, { AttachmentPicker, type Attachment } from './receipt-files';
+import PaymentFields from './payment-fields';
+import { buildTranches, emptyPayment, paymentCents, paymentLabels, validateFinancedPurchase, type FinancedPurchaseInput, type PaymentDraft, type PaymentMode } from './payment-types';
 type DraftItem = { descripcion: string; cantidad: string; costo: string };
-type Intent = { request: PurchaseInput; supplier: Supplier; cents: bigint };
+type Intent = { request: FinancedPurchaseInput; supplier: Supplier; cents: bigint; paymentNames: string[] };
 const emptyItem = (): DraftItem => ({ descripcion: '', cantidad: '1', costo: '' });
 const optional = (value: string) => value.trim() || null;
 export default function NewPurchaseForm() {
@@ -14,6 +16,8 @@ export default function NewPurchaseForm() {
   const [supplierOffset, setSupplierOffset] = useState(0);
   const [fecha, setFecha] = useState(''); const [comprobante, setComprobante] = useState(''); const [observaciones, setObservaciones] = useState('');
   const [items, setItems] = useState<DraftItem[]>([emptyItem()]);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('EFECTIVO');
+  const [paymentDrafts, setPaymentDrafts] = useState<PaymentDraft[]>([emptyPayment()]);
   const [showSupplier, setShowSupplier] = useState(false);
   const [supplierDraft, setSupplierDraft] = useState({ nombre: '', fiscal: '', contacto: '', observaciones: '' });
   const [supplierIntent, setSupplierIntent] = useState<SupplierInput | null>(null);
@@ -62,23 +66,25 @@ export default function NewPurchaseForm() {
     if (!supplier) { setError('Seleccioná un proveedor.'); return; }
     if (supplierIntent) { setError('Resolvé primero el intento de alta del proveedor.'); return; }
     const parsed = items.map((item, index) => ({ posicion: index + 1, descripcion: item.descripcion.trim(), cantidad: decimalNumber(item.cantidad, true), costo_unitario: decimalNumber(item.costo, false) }));
-    const request = { p_operacion_id: crypto.randomUUID(), p_tipo: tipo, p_proveedor_id: supplier.id, p_fecha: fecha, p_moneda: 'ARS', p_comprobante: optional(comprobante), p_observaciones: optional(observaciones), p_items: parsed };
-    if (!validatePurchase(request)) { setError('Revisá fecha, descripción, cantidad y costo (hasta 6 decimales).'); return; }
-    setIntent({ request, supplier, cents: total });
+    const tramos = buildTranches(total, paymentMode, paymentDrafts);
+    if (!tramos) { setError('Revisá formas de pago, importes, fecha, tarjeta y cuotas. La distribución debe coincidir exactamente con el total.'); return; }
+    const request = { p_operacion_id: crypto.randomUUID(), p_tipo: tipo, p_proveedor_id: supplier.id, p_fecha: fecha, p_moneda: 'ARS', p_comprobante: optional(comprobante), p_observaciones: optional(observaciones), p_items: parsed, p_tramos: tramos };
+    if (!validateFinancedPurchase(request)) { setError('Revisá fecha, descripción, cantidad y costo (hasta 6 decimales).'); return; }
+    setIntent({ request, supplier, cents: total, paymentNames: paymentDrafts.map(draft => draft.tarjetaNombre) });
   }
   async function save(event: React.FormEvent) {
     event.preventDefault(); if (!intent || lock.current || hasResult.current) return;
     lock.current = true; setBusy(true); setSent(true); setError('');
     try {
-      const created = await post('/api/admin/compras', intent.request);
+      const created = await post('/api/admin/compras/financiadas', intent.request);
       // El detalle persistido reemplaza la previsualización; si falla, retry conserva UUID.
-      const response = await fetch(`/api/admin/compras/${created.compra_gasto_id}`, { cache: 'no-store' });
+      const response = await fetch(`/api/admin/compras/${created.compra_id}`, { cache: 'no-store' });
       const body = await response.json(); if (!response.ok) throw new Error('Registro creado; no pudimos cargar el detalle. Reintentá la misma solicitud.');
       hasResult.current = true; setResult(body.result);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo confirmar el registro.'); }
     finally { lock.current = false; setBusy(false); }
   }
-  if (result) return <section className={`${cardStyle} space-y-4`} role="status"><h2 className="text-xl font-bold">{result.tipo === 'MERCADERIA' ? 'Compra registrada correctamente' : 'Gasto registrado correctamente'}</h2><p>{result.proveedor.nombre} · {result.fecha}</p><p className="text-2xl font-bold">{money(result.total, result.moneda)} · {result.moneda}</p><div className="flex flex-wrap gap-4"><Link className="min-h-12 underline" href={`/admin/compras/${result.id}`} onClick={event=>{if(attachmentsBusy)event.preventDefault();}}>Ver detalle</Link><button className={buttonStyle} disabled={attachmentsBusy} onClick={() => { hasResult.current = false; setResult(null); setIntent(null); setSent(false); setItems([emptyItem()]); setComprobante(''); setObservaciones(''); setAttachments([]); }}>Registrar otra</button></div><ReceiptFiles key={result.id} purchaseId={result.id} initialFiles={attachments} onBusyChange={setAttachmentsBusy}/></section>;
+  if (result) return <section className={`${cardStyle} space-y-4`} role="status"><h2 className="text-xl font-bold">{result.tipo === 'MERCADERIA' ? 'Compra registrada correctamente' : 'Gasto registrado correctamente'}</h2><p>{result.proveedor.nombre} · {result.fecha}</p><p className="text-2xl font-bold">{money(result.total, result.moneda)} · {result.moneda}</p><div className="flex flex-wrap gap-4"><Link className="min-h-12 underline" href={`/admin/compras/${result.id}`} onClick={event=>{if(attachmentsBusy)event.preventDefault();}}>Ver detalle</Link><button className={buttonStyle} disabled={attachmentsBusy} onClick={() => { hasResult.current = false; setResult(null); setIntent(null); setSent(false); setItems([emptyItem()]); setComprobante(''); setObservaciones(''); setAttachments([]); setPaymentMode('EFECTIVO'); setPaymentDrafts([emptyPayment()]); }}>Registrar otra</button></div><ReceiptFiles key={result.id} purchaseId={result.id} initialFiles={attachments} onBusyChange={setAttachmentsBusy}/></section>;
   return <div className="space-y-5">
     <Link href="/admin/compras" aria-disabled={busy || sent || !!supplierIntent} onClick={event => { if (busy || sent || supplierIntent) event.preventDefault(); }} className="underline">Volver al listado</Link>
     {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4">{error}</p>}
@@ -96,9 +102,10 @@ export default function NewPurchaseForm() {
         <label className="block">Observaciones (opcional)<textarea name="observaciones" className={inputStyle} value={observaciones} onChange={event => setObservaciones(event.target.value)} /></label>
         <h2 className="text-xl font-semibold">Ítems</h2>{items.map((item,index) => <section key={index} className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold">Ítem {index+1}</h3><label className="block">Descripción<input name={`descripcion-${index}`} className={inputStyle} value={item.descripcion} onChange={event => setItems(items.map((old,i) => i===index ? { ...old, descripcion:event.target.value } : old))} /></label><div className="grid gap-3 sm:grid-cols-2"><label>Cantidad<input inputMode="decimal" name={`cantidad-${index}`} className={inputStyle} value={item.cantidad} onChange={event => setItems(items.map((old,i) => i===index ? { ...old, cantidad:event.target.value } : old))} /></label><label>Costo unitario<input inputMode="decimal" name={`costo-${index}`} className={inputStyle} value={item.costo} onChange={event => setItems(items.map((old,i) => i===index ? { ...old, costo:event.target.value } : old))} /></label></div><p>Subtotal: {subtotal(item.cantidad,item.costo) === null ? '—' : displayCents(subtotal(item.cantidad,item.costo)!)} ARS</p><button type="button" className={`${secondaryButtonInteractionStyle} min-h-12 underline disabled:opacity-50`} disabled={items.length===1} onClick={() => setItems(items.filter((_,i) => i!==index))}>Quitar</button></section>)}
         <button type="button" className={`${secondaryButtonInteractionStyle} min-h-12 underline`} disabled={items.length>=1000} onClick={() => setItems([...items,emptyItem()])}>+ Agregar ítem</button><p className="text-2xl font-bold">TOTAL: {displayCents(total)} ARS</p><p className="text-sm">Previsualización. El total definitivo se calcula al registrar.</p>
-      </fieldset><button className={buttonStyle} disabled={busy || !!supplierIntent}>Revisar antes de guardar</button></form>
+        <PaymentFields total={total} mode={paymentMode} drafts={paymentDrafts} onMode={setPaymentMode} onChange={setPaymentDrafts}/>
+      </fieldset><button className={buttonStyle} disabled={busy || !!supplierIntent || buildTranches(total, paymentMode, paymentDrafts) === null}>Revisar antes de guardar</button></form>
     </>}
     {!intent && <AttachmentPicker files={attachments} onChange={setAttachments} disabled={busy || !!supplierIntent}/>}
-    {intent && <form id="purchase-confirm" className={`${cardStyle} space-y-4`} onSubmit={save}><h2 className="text-xl font-bold">Confirmar compra / gasto</h2><p>{intent.request.p_tipo === 'MERCADERIA' ? 'Mercadería' : 'Gasto'} · {intent.supplier.nombre} · {intent.request.p_fecha}</p><ol className="space-y-2">{intent.request.p_items.map(item => <li key={item.posicion}>{item.posicion}. {item.descripcion} · {item.cantidad} × {item.costo_unitario} · {displayCents(subtotal(String(item.cantidad),String(item.costo_unitario))!)} ARS</li>)}</ol><p className="text-2xl font-bold">TOTAL: {displayCents(intent.cents)} ARS</p><p>Comprobante: {intent.request.p_comprobante || '—'}</p><p>Archivos adjuntos: {attachments.length}. Se subirán después de registrar.</p><p>Observaciones: {intent.request.p_observaciones || '—'}</p><div className="flex flex-wrap gap-3"><button className={buttonStyle} disabled={busy}>{busy ? 'Guardando…' : sent ? 'Reintentar misma solicitud' : 'Confirmar y guardar'}</button>{!sent && <button type="button" className={`${secondaryButtonInteractionStyle} min-h-12 rounded-lg border px-4`} onClick={() => setIntent(null)}>Volver a editar</button>}</div>{sent && <p>No cierres ni recargues esta página hasta resolver el resultado: el UUID y la solicitud se conservan en esta página.</p>}</form>}
+    {intent && <form id="purchase-confirm" className={`${cardStyle} space-y-4`} onSubmit={save}><h2 className="text-xl font-bold">Confirmar compra / gasto</h2><p>{intent.request.p_tipo === 'MERCADERIA' ? 'Mercadería' : 'Gasto'} · {intent.supplier.nombre} · {intent.request.p_fecha}</p><ol className="space-y-2">{intent.request.p_items.map(item => <li key={item.posicion}>{item.posicion}. {item.descripcion} · {item.cantidad} × {item.costo_unitario} · {displayCents(subtotal(String(item.cantidad),String(item.costo_unitario))!)} ARS</li>)}</ol><p className="text-2xl font-bold">TOTAL: {displayCents(intent.cents)} ARS</p><h3 className="text-lg font-semibold">Formas de pago</h3>{intent.request.p_tramos.length === 0 ? <p>Total cero: sin tramos de pago.</p> : <ol className="space-y-2">{intent.request.p_tramos.map((tramo, index) => <li key={tramo.posicion}>{paymentLabels[tramo.medio]} · {displayCents(paymentCents(String(tramo.importe))!)} ARS{tramo.fecha_pago ? ` · Fecha de pago: ${tramo.fecha_pago}` : ` · ${intent.paymentNames[index]} · ${tramo.cantidad_cuotas} cuotas · Primer período: ${tramo.primer_periodo_id || 'Sin asignar'}`}</li>)}</ol>}<p>Total distribuido: {displayCents(intent.cents)} ARS</p><p>Comprobante: {intent.request.p_comprobante || '—'}</p><p>Archivos adjuntos: {attachments.length}. Se subirán después de registrar.</p><p>Observaciones: {intent.request.p_observaciones || '—'}</p><div className="flex flex-wrap gap-3"><button className={buttonStyle} disabled={busy}>{busy ? 'Guardando…' : sent ? 'Reintentar misma solicitud' : 'Confirmar y guardar'}</button>{!sent && <button type="button" className={`${secondaryButtonInteractionStyle} min-h-12 rounded-lg border px-4`} onClick={() => setIntent(null)}>Volver a editar</button>}</div>{sent && <p>No cierres ni recargues esta página hasta resolver el resultado: el UUID y la solicitud se conservan en esta página.</p>}</form>}
   </div>;
 }
