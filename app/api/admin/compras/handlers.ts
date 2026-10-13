@@ -2,7 +2,7 @@ import { paymentCents, centsNumber, validateFinancedPurchase } from '@/app/admin
 import { createClient } from '@/utils/supabase/server';
 import { validatePurchase, validateSupplier, uuid, validDate } from '@/app/admin/compras/purchase-types';
 function json(body: unknown, status = 200) { return Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } }); }
-export async function handle(request: Request, kind: 'supplier' | 'purchase' | 'detail' | 'financed' | 'cards' | 'periods' | 'summaries' | 'edit-card' | 'summary-payment', id?: string) {
+export async function handle(request: Request, kind: 'supplier' | 'purchase' | 'detail' | 'financed' | 'cards' | 'periods' | 'summaries' | 'edit-card' | 'summary-payment' | 'annul-purchase', id?: string) {
   try {
     const origin = request.headers.get('origin');
     if (origin && new URL(origin).origin !== new URL(request.url).origin) return json({ error: 'Solicitud no permitida.' }, 403);
@@ -13,7 +13,12 @@ export async function handle(request: Request, kind: 'supplier' | 'purchase' | '
     if (request.method === 'POST') {
       let body: unknown;
       try { body = await request.json(); } catch { return json({ error: 'Solicitud inválida.' }, 400); }
-      if (kind === 'summary-payment') {
+      if (kind === 'annul-purchase') {
+        const v=body as Record<string,unknown>|null;
+        const fields=['p_operacion_id','p_compra_gasto_id','p_motivo'];
+        if(!id||!uuid.test(id)||!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).length!==3||!fields.every(k=>Object.hasOwn(v,k))||v.p_compra_gasto_id!==id||typeof v.p_operacion_id!=='string'||!uuid.test(v.p_operacion_id)||typeof v.p_motivo!=='string'||!v.p_motivo.trim())return json({error:'Compra y motivo obligatorios.'},422);
+        rpc='anular_compra_gasto_admin';args={...v,p_motivo:v.p_motivo.trim()};
+      } else if (kind === 'summary-payment') {
         const v=body as Record<string,unknown>|null;
         const fields=['p_operacion_id','p_periodo_id','p_fecha_pago','p_importe','p_referencia'];
         const cents=v && typeof v.p_importe==='number'?paymentCents(String(v.p_importe)):null;
@@ -51,12 +56,18 @@ export async function handle(request: Request, kind: 'supplier' | 'purchase' | '
     const result = await client.rpc(rpc, args);
     if (result.error) {
       console.error('Compras/gastos RPC', rpc, result.error.code);
+      if(kind==='annul-purchase' && result.error.code==='23514') {
+        const message=result.error.message || '';
+        if(message==='La compra tiene pagos de tarjeta aplicados y requiere corrección financiera')return json({error:'La compra tiene pagos de tarjeta aplicados y requiere corrección financiera. No fue anulada.'},409);
+        if(message==='La compra ya está anulada')return json({error:'La compra ya está anulada. Volvé a consultar el detalle.'},409);
+      }
       if (result.error.code === '42501') return json({ error: 'Tu cuenta no tiene permisos de administración.' }, 403);
       return json({ error: request.method === 'POST' ? 'No se pudo confirmar el registro. Reintentá la misma solicitud.' : 'No se pudo consultar el registro.' }, request.method === 'POST' ? 502 : 400);
     }
     if (request.method === 'POST') {
       const data = result.data as Record<string, unknown> | null;
       const createdId = kind === 'summary-payment' ? data?.pago_id : (kind === 'cards' || kind === 'edit-card') ? data?.tarjeta_id : kind === 'periods' ? data?.periodo_id : kind === 'supplier' ? data?.id : kind === 'financed' ? data?.compra_id : data?.compra_gasto_id;
+      if (kind==='annul-purchase' && (data?.estado!=='ANULADA'||data?.compra_gasto_id!==id||data?.operacion_id!==args.p_operacion_id))return json({error:'Resultado incierto. Reintentá la misma anulación.'},502);
       if ((kind === 'edit-card' && data?.tarjeta_id !== args.p_tarjeta_id) || (kind === 'financed' && data?.estado !== 'CONFIRMADA') || typeof createdId !== 'string' || !uuid.test(createdId) || ((kind === 'purchase' || kind === 'financed' || kind === 'cards' || kind === 'periods' || kind === 'edit-card' || kind === 'summary-payment') && data?.operacion_id !== args.p_operacion_id)) return json({ error: 'Respuesta incierta. Reintentá la misma solicitud.' }, 502);
     } else if (kind !== 'detail' && !Array.isArray(result.data)) return json({ error: 'No se pudo consultar el listado.' }, 502);
     return json({ result: result.data });
