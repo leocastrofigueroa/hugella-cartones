@@ -5,7 +5,20 @@ export type PurchaseInput = { p_operacion_id: string; p_tipo: 'MERCADERIA' | 'GA
 export type SupplierInput = { p_operacion_id: string; p_nombre: string; p_identificacion_fiscal: string | null; p_contacto: string | null; p_observaciones: string | null };
 export type PurchaseAnnulment = {compra_gasto_id:string;operacion_id:string;motivo:string;created_at:string;actor_id:string};
 export type PurchaseRow = { id: string; tipo: 'MERCADERIA' | 'GASTO'; fecha: string; proveedor_nombre: string; moneda: string; comprobante: string | null; observaciones: string | null; total: number; cantidad_items: number; created_at: string; anulacion?: PurchaseAnnulment | null };
-export type PurchaseDetail = Omit<PurchaseRow, 'proveedor_nombre'> & { proveedor: Supplier; observaciones: string | null; items: (Item & { id: string; total: number })[] };
+export type PurchaseDetailItem = { id: string; posicion: number; descripcion: string; total: number } & (
+  { modalidad: 'TOTAL_HISTORICO'; cantidad: null; costo_unitario: null } |
+  { modalidad: 'DETALLADO'; cantidad: number; costo_unitario: number }
+);
+export type HistoricalFinancingEvidence = {
+  tarjeta_original: string; tarjeta_canonica: string; cuotas_fuente: number;
+  valor_cuota_historico: number; pagadas_historicas: number; pendientes_historicas: number;
+  saldo_historico: number; estado_original: string; cierre_original: string; vencimiento_original: string;
+  tratamiento: 'FINANCIACION_HISTORICA_OPERATIVA' | 'FINANCIACION_HISTORICA_SIN_IMPORTE_OPERATIVO';
+};
+export type PurchaseDetail = Omit<PurchaseRow, 'proveedor_nombre'> & {
+  proveedor: Supplier; observaciones: string | null; fuente: 'GOOGLE_SHEETS_COMPRAS' | null;
+  id_origen: string | null; items: PurchaseDetailItem[]; evidencia_historica?: HistoricalFinancingEvidence | null;
+};
 export const inputStyle = 'mt-1 min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3 py-2';
 export const buttonInteractionStyle = 'cursor-pointer transition duration-150 not-disabled:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hugella-gold)] disabled:cursor-not-allowed disabled:opacity-50';
 export const buttonStyle = `${buttonInteractionStyle} min-h-12 rounded-lg bg-[var(--hugella-navy)] px-5 py-3 font-semibold text-white not-disabled:hover:bg-[var(--hugella-navy-secondary)]`;
