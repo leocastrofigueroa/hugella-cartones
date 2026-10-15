@@ -84,7 +84,8 @@ IMPORTAR requiere además el modo `habilitada` y una segunda variable
 `HUGELLA_EJECUTAR_LOTE_HG=habilitada`; sin ambas su POST queda cerrado.
 Ver `preflight-lote-hg.md`. No se habilitó ni desplegó durante este trabajo.
 
-Página y endpoints verifican sesión y admin. VERIFICAR usa sólo la RPC STABLE
+La página verifica sesión y muestra acceso administrativo pendiente, sin RPC al
+abrir. VERIFICAR acredita admin usando sólo la RPC pública STABLE
 verificar_lote_hg_admin mediante GET PostgREST y muestra el resultado read-only. POST exige mismo origen y cuerpo vacío.
 Usa `utils/supabase/server`, con cookies reales y publishable key; nunca el
 cliente privilegiado. Hace una sola RPC de carga, además de la consulta de

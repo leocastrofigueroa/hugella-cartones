@@ -8,11 +8,11 @@ export default async function Page() {
   const client = await createClient();
   const { data, error } = await client.auth.getClaims();
   if (error || !data?.claims?.sub) redirect('/admin/login');
-  const admin = await client.rpc('es_admin_hugella');
-  if (admin.error || admin.data !== true) notFound();
+  // Sólo pantalla de acceso pendiente. VERIFICAR acredita admin mediante la
+  // RPC pública read-only; no invocar el helper privado ni preflight al abrir.
   return <section className="space-y-4">
     <h1 className="text-2xl font-bold">Carga histórica aprobada de Compras</h1>
-    <p>Sesión autenticada y administrador reconocido. Primero verificá el lote sin modificar datos.</p>
+    <p>Sesión autenticada. Acceso administrativo pendiente: VERIFICAR comprobará tu autorización y el estado del lote sin modificar datos.</p>
     <ImportHistoricalBatch importEnabled={mode === 'habilitada' && process.env.HUGELLA_EJECUTAR_LOTE_HG === 'habilitada'} />
   </section>;
 }

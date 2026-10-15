@@ -16,8 +16,11 @@ export async function GET(request: Request) {
   // GET PostgREST: RPC STABLE en transacción READ ONLY, sin invocar importador.
   const result = await client.rpc('verificar_lote_hg_admin', undefined, { get: true });
   if (result.error) {
-    return Response.json({ error: result.error.code === '42501' ? 'No autorizado' : 'No se pudo completar el preflight' },
-      { status: result.error.code === '42501' ? 403 : 502, headers: { 'Cache-Control': 'no-store' } });
+    // Sólo el rechazo explícito de la RPC significa "no admin". Un 42501 por
+    // permiso de función faltante es un fallo técnico, igual que caché/red/SQL.
+    const denied = result.error.code === '42501' && result.error.message === 'No autorizado';
+    return Response.json({ error: denied ? 'Acceso rechazado: se requiere administrador.' : 'Error técnico: no se pudo completar el preflight.' },
+      { status: denied ? 403 : 502, headers: { 'Cache-Control': 'no-store' } });
   }
   return Response.json(result.data, { headers: { 'Cache-Control': 'private, no-store' } });
 }

@@ -15,6 +15,7 @@ let env = {}, claims = { data: { claims: { sub: 'admin-fixture' } } };
 let admin = true, rpcError = null, rpcCalls = [], fetchCalls = [], fetchResult;
 const preflight = { estado_lote: 'LISTO_PARA_IMPORTAR', actor_id: 'admin-fixture', administrador: true, rol_jwt: 'authenticated', solo_lectura: true, diagnostico: null, statement_timeout: '8s', transaction_read_only: 'on' };
 let resolveFetch;
+let privateCalls = 0;
 const result = { estado_lote: 'IMPORTADO_CORRECTAMENTE', compras_historicas: 60,
   obligaciones_monetarias: 280, cortes_historicos: 54, saldo_pendiente: 14259630.21 };
 function load(file) {
@@ -30,13 +31,18 @@ function load(file) {
         auth: { getClaims: async () => claims },
         rpc: async (...args) => {
           rpcCalls.push(args);
-          return args[0] === 'es_admin_hugella' ? { data: admin } : { data: args[0] === 'verificar_lote_hg_admin' ? preflight : result, error: rpcError };
+          if (args[0] === 'es_admin_hugella') {
+            privateCalls++;
+            return { data: null, error: { code: '42501', message: 'permission denied for function es_admin_hugella' } };
+          }
+          if (!admin) return { data: null, error: { code: '42501', message: 'No autorizado' } };
+          return { data: args[0] === 'verificar_lote_hg_admin' ? preflight : result, error: rpcError };
         },
       }) };
       if (name === 'next/navigation') return {
         notFound() { throw new Error('404'); }, redirect() { throw new Error('LOGIN'); },
       };
-      if (name === './import-historical-batch') return { default: () => null };
+      if (name === './import-historical-batch') return { __esModule: true, default: () => null };
       return require(name);
     },
   });
@@ -72,8 +78,24 @@ assert.equal(rpcCalls.length,1); assert.equal(rpcCalls[0][0],'verificar_lote_hg_
 assert.equal(rpcCalls[0][1],undefined); assert.equal(rpcCalls[0][2].get,true);
 assert.match(ready.headers.get('cache-control'),/no-store/);
 pass('una RPC de preflight GET read-only, sin payload ni importador');
-admin=false; await assert.rejects(page,/404/); admin=true;
-pass('página exige es_admin_hugella con sesión real');
+const beforeOpen=rpcCalls.length;
+const shell=await page();
+assert.ok(shell); assert.equal(rpcCalls.length,beforeOpen); assert.equal(privateCalls,0);
+const { renderToStaticMarkup } = require('react-dom/server');
+assert.match(renderToStaticMarkup(shell),/Acceso administrativo pendiente/);
+pass('admin con helper privado sin EXECUTE: abre pantalla sin 404 ni RPC ni preflight automático');
+admin=false; assert.ok(await page()); assert.equal(rpcCalls.length,beforeOpen); admin=true;
+pass('pantalla inicial no acredita admin: autorización queda en VERIFICAR público');
+for (const error of [
+ {code:'42501',message:'permission denied for function verificar_lote_hg_admin'},
+ {code:'PGRST202',message:'Could not find the function in the schema cache'},
+ {code:'57014',message:'canceling statement due to statement timeout'},
+]) {
+ rpcError=error;
+ const response=await verifyRoute.GET(get()); assert.equal(response.status,502);
+ assert.match((await response.json()).error,/Error técnico/);
+}
+rpcError=null; pass('permisos/caché/timeout técnicos producen 502 explícito, nunca falso no-admin ni 404');
 env.HUGELLA_IMPORTACION_COMPRAS_HISTORICAS='habilitada';
 assert.equal((await route.POST(request())).status,404);
 pass('flag anterior habilitada tampoco activa importar por sí solo');
@@ -88,6 +110,12 @@ rpcCalls=[]; assert.equal((await route.POST(request())).status,200);
 assert.equal(rpcCalls.filter(x=>x[0]==='importar_lote_compras_historicas_admin').length,1);
 assert.equal(rpcCalls.at(-1).length,1);
 pass('importar habilitado sólo hace una llamada sin argumentos (mock offline)');
+rpcError={code:'42501',message:'permission denied for function importar_lote_compras_historicas_admin'};
+assert.equal((await route.POST(request())).status,502);
+rpcError={code:'P0001',message:'C PARCIAL_O_INCONSISTENTE'};
+assert.equal((await route.POST(request())).status,409);
+rpcError=null;
+pass('importador mock distingue permiso técnico de conflicto sin llamar helper privado');
 const View=load('app/admin/compras/importacion-historica/import-historical-batch.tsx').default;
 const root=createRoot(document.getElementById('root'));
 async function mount(enabled=false) {
@@ -124,5 +152,14 @@ pass('C muestra diagnóstico y no habilita importar');
 await mount(true); fetchResult=Response.json({...preflight,transaction_read_only:'off'});
 await act(async()=>buttons()[0].click()); assert.ok(buttons()[1].disabled);
 assert.match(document.body.textContent,/sólo lectura/); pass('respuesta no read-only no habilita importar');
+for (const [status,message] of [[403,'Acceso rechazado: se requiere administrador.'],[502,'Error técnico: no se pudo completar el preflight.']]) {
+ await mount(true); fetchResult=Response.json({error:message},{status});
+ await act(async()=>buttons()[0].click());
+ assert.match(document.querySelector('[role="alert"]').textContent,new RegExp(message));
+ assert.ok(buttons()[1].disabled); assert.ok(!document.body.textContent.includes('Admin reconocido'));
+}
+pass('UI distingue rechazo de acceso y error técnico, ambos sin habilitar importar');
+assert.equal(privateCalls,0);
+pass('ninguna ruta/página depende del EXECUTE privado; importar autoriza sólo dentro de su RPC pública mockeada');
 await act(async()=>root.unmount());
 console.log(`PASS: ${checks} controles app, sin red ni importador real`);

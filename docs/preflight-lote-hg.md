@@ -79,6 +79,12 @@ Mantener NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY existen
 Nunca agregar service_role como sustituto de la sesión.
 
 Página y endpoints usan cookies/sesión reales con utils/supabase/server.
+Abrir la página sólo acredita sesión y muestra acceso administrativo pendiente;
+no ejecuta preflight ni llama directamente al helper privado es_admin_hugella.
+Un usuario autenticado no admin puede ver esa pantalla inicial sin datos del lote:
+VERIFICAR lo rechaza con 403. La RPC pública acredita admin y conserva toda la
+validación en Supabase; los errores técnicos se muestran como 502, no como 404
+o falso rechazo administrativo.
 VERIFICAR llama GET `/admin/compras/importacion-historica/verificar`, sin parámetros;
 ese endpoint hace sólo `rpc('verificar_lote_hg_admin', undefined, {get:true})`.
 El resultado no se cachea y la UI exige admin/JWT y transaction_read_only=on.
@@ -95,7 +101,8 @@ HUGELLA_EJECUTAR_LOTE_HG=habilitada
 No se habilitaron. Estas variables cierran la ruta de la app; no revocan la
 RPC SQL de 140005, que conserva su autorización administrativa original.
 POST /ejecutar comprueba ambas antes de cualquier RPC, exige
-mismo origen/cuerpo vacío y vuelve a validar sesión/admin. Cambiar props, DOM,
+mismo origen/cuerpo vacío y valida sesión; la RPC importadora valida admin
+internamente, sin ejecutar externamente el helper privado. Cambiar props, DOM,
 query o JSON del cliente no abre el endpoint. La UI además exige preflight LISTO
 antes de habilitar su botón IMPORTAR. B/C nunca lo habilitan. Ante respuesta
 incierta de una futura carga, VERIFICAR permite distinguir A/B/C sin importar.
