@@ -109,8 +109,11 @@ incierta de una futura carga, VERIFICAR permite distinguir A/B/C sin importar.
 
 ## Timeout y hosting
 
-El repo no define maxDuration, configuración Vercel/otro hosting, ni timeout/abort
-propio para estas rutas. next.config.ts está vacío de esas opciones. La guía local
+El preflight normal no define maxDuration. Tras el ajuste específico de plazo,
+las rutas ejecutar y verificar-plazo solicitan maxDuration=60; su efectividad
+real depende del hosting. No hay configuración Vercel/otro hosting versionada
+ni timeout/abort propio de fetch. next.config.ts está vacío de esas opciones.
+Ver `timeout-lote-hg.md` para 150002, wrapper 45s y prueba read-only de 9s. La guía local
 de Next permite maxDuration pero su aplicación depende del despliegue. El logo
 vercel.svg no acredita proveedor ni plan. No puede conocerse el límite real del
 hosting localmente y no se cambió ninguno.

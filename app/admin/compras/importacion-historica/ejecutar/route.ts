@@ -1,5 +1,8 @@
 import { createClient } from '@/utils/supabase/server';
 
+// 45s de SQL + margen de transporte; confirmar el límite efectivo del hosting.
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   if (process.env.HUGELLA_IMPORTACION_COMPRAS_HISTORICAS !== 'habilitada'
     || process.env.HUGELLA_EJECUTAR_LOTE_HG !== 'habilitada') {
@@ -20,7 +23,7 @@ export async function POST(request: Request) {
   // La RPC pública verifica auth.uid()/es_admin_hugella internamente con su
   // SECURITY DEFINER. No llamar externamente al helper privado sin EXECUTE.
   // Una única llamada de carga, con la sesión real; sin actor ni payload.
-  const result = await client.rpc('importar_lote_compras_historicas_admin');
+  const result = await client.rpc('ejecutar_lote_hg_admin');
   if (result.error) {
     const denied = result.error.code === '42501' && result.error.message === 'No autorizado';
     const conflict = ['22023', '23514', '25000', 'P0001'].includes(result.error.code);

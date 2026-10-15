@@ -47,7 +47,7 @@ setup = ''
 if storage:
     setup += '''    sql("CREATE SCHEMA storage; CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]); CREATE TABLE storage.objects(id uuid DEFAULT gen_random_uuid(),bucket_id text,name text,metadata jsonb); ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;")
 '''
-migrations = migrations + ['202610140002_corte_historico_compras.sql', '202610140003_importacion_compras_historicas.sql', '202610140004_financiacion_historica_sheets.sql', '202610140005_importar_lote_compras_historicas.sql', '202610150001_preflight_lote_compras_historicas.sql']
+migrations = migrations + ['202610140002_corte_historico_compras.sql', '202610140003_importacion_compras_historicas.sql', '202610140004_financiacion_historica_sheets.sql', '202610140005_importar_lote_compras_historicas.sql', '202610150001_preflight_lote_compras_historicas.sql', '202610150002_plazo_lote_hg.sql']
 setup += f"    for historical_regression_migration in {migrations!r}:\n"
 setup += "        sql((ROOT/'supabase/migrations'/historical_regression_migration).read_text())\n"
 setup += "    print('INFRAESTRUCTURA FINAL INSTALADA: comienza regresión de comportamiento', flush=True)\n"

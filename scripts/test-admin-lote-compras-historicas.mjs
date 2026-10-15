@@ -52,11 +52,13 @@ let checks = 0;
 function pass(label) { checks++; console.log('PASS:', label); }
 const route = load('app/admin/compras/importacion-historica/ejecutar/route.ts');
 const verifyRoute = load('app/admin/compras/importacion-historica/verificar/route.ts');
+const deadlineRoute = load('app/admin/compras/importacion-historica/verificar-plazo/route.ts');
 const page = load('app/admin/compras/importacion-historica/page.tsx').default;
 const request = (origin='http://localhost',body) => new Request('http://localhost/admin/compras/importacion-historica/ejecutar', { method: 'POST', headers: { origin }, ...(body ? { body } : {}) });
 const get = (query='') => new Request('http://localhost/admin/compras/importacion-historica/verificar'+query);
 assert.equal((await route.POST(request())).status,404);
 assert.equal((await verifyRoute.GET(get())).status,404);
+assert.equal((await deadlineRoute.GET(get())).status,404);
 assert.equal(rpcCalls.length,0); await assert.rejects(page,/404/);
 pass('rutas y página cerradas por defecto');
 env.HUGELLA_IMPORTACION_COMPRAS_HISTORICAS='verificar';
@@ -78,6 +80,14 @@ assert.equal(rpcCalls.length,1); assert.equal(rpcCalls[0][0],'verificar_lote_hg_
 assert.equal(rpcCalls[0][1],undefined); assert.equal(rpcCalls[0][2].get,true);
 assert.match(ready.headers.get('cache-control'),/no-store/);
 pass('una RPC de preflight GET read-only, sin payload ni importador');
+rpcCalls=[];
+const deadline=await deadlineRoute.GET(get());
+assert.equal(deadline.status,200); assert.equal(rpcCalls.length,1);
+assert.equal(rpcCalls[0][0],'verificar_plazo_hg_admin'); assert.equal(rpcCalls[0][2].get,true);
+assert.equal(route.maxDuration,60); assert.equal(deadlineRoute.maxDuration,60);
+assert.equal((await deadlineRoute.GET(get('?segundos=999'))).status,400);
+pass('prueba de plazo sólo RPC GET sin parámetros; presupuestos de hosting explícitos 60s');
+
 const beforeOpen=rpcCalls.length;
 const shell=await page();
 assert.ok(shell); assert.equal(rpcCalls.length,beforeOpen); assert.equal(privateCalls,0);
@@ -107,10 +117,10 @@ claims={data:{claims:null}}; assert.equal((await route.POST(request())).status,4
 claims={data:{claims:{sub:'admin-fixture'}}}; admin=false; assert.equal((await route.POST(request())).status,403); admin=true;
 pass('importar conserva rechazo sin sesión/no admin');
 rpcCalls=[]; assert.equal((await route.POST(request())).status,200);
-assert.equal(rpcCalls.filter(x=>x[0]==='importar_lote_compras_historicas_admin').length,1);
+assert.equal(rpcCalls.filter(x=>x[0]==='ejecutar_lote_hg_admin').length,1);
 assert.equal(rpcCalls.at(-1).length,1);
 pass('importar habilitado sólo hace una llamada sin argumentos (mock offline)');
-rpcError={code:'42501',message:'permission denied for function importar_lote_compras_historicas_admin'};
+rpcError={code:'42501',message:'permission denied for function ejecutar_lote_hg_admin'};
 assert.equal((await route.POST(request())).status,502);
 rpcError={code:'P0001',message:'C PARCIAL_O_INCONSISTENTE'};
 assert.equal((await route.POST(request())).status,409);
