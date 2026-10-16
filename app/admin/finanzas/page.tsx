@@ -37,6 +37,19 @@ type PanelCard = {
   estado_periodo: string;
 };
 
+type PanelHistoricalMonth = {
+  mes: string;
+  cantidad_pagos: number;
+  importe: unknown;
+};
+
+type PanelHistoricalCollections = {
+  total: unknown;
+  activos: unknown;
+  devueltos: unknown;
+  por_mes: PanelHistoricalMonth[];
+};
+
 function formatDate(value: string | null) {
   if (!value) return "Sin fecha";
   return new Intl.DateTimeFormat("es-AR", {
@@ -66,11 +79,13 @@ export default async function FinanzasPage() {
     );
   }
 
+  
   const panel = (panelData ?? {}) as {
-    creditos?: PanelCredit[];
-    proyeccion?: PanelProjection[];
-    tarjetas?: PanelCard[];
-  };
+  creditos?: PanelCredit[];
+  proyeccion?: PanelProjection[];
+  tarjetas?: PanelCard[];
+  cobranzas_historicas?: PanelHistoricalCollections;
+};
 
   const creditos = (panel.creditos ?? []).filter(
     (credito) => credito.codigo !== "CR-0048" && !credito.devuelto
@@ -124,7 +139,12 @@ export default async function FinanzasPage() {
     .slice(0, 8);
 
   const tarjetas = panel.tarjetas ?? [];
-
+    const cobranzasHistoricas = panel.cobranzas_historicas ?? {
+  total: 0,
+  activos: 0,
+  devueltos: 0,
+  por_mes: [],
+  };
   const saldoTarjetas = tarjetas.reduce(
     (total, obligacion) => total + asNumber(obligacion.saldo_pendiente),
     0
@@ -158,7 +178,7 @@ export default async function FinanzasPage() {
   const cards = [
     ["Inversión activa", inversionActiva],
     ["Venta financiada activa", ventaFinanciada],
-    ["Cobrado", cobrado],
+    ["Cobrado créditos activos", cobrado],
     ["Saldo por cobrar", saldoPendiente],
     ["Mora vencida", moraTotal],
     ["Ganancia bruta proyectada", gananciaProyectada],
@@ -211,6 +231,88 @@ export default async function FinanzasPage() {
             {adelantados}
           </p>
         </article>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <p className="section-kicker">Histórico</p>
+          <h2 className="text-xl font-bold">Cobranzas históricas</h2>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <article className="rounded-xl border border-[var(--hugella-border)] bg-white p-5">
+            <p className="text-sm text-[var(--hugella-navy-secondary)]">
+              Cobrado histórico total
+            </p>
+            <p className="mt-2 text-2xl font-bold">
+              {money.format(asNumber(cobranzasHistoricas.total))}
+            </p>
+          </article>
+
+          <article className="rounded-xl border border-[var(--hugella-border)] bg-white p-5">
+            <p className="text-sm text-[var(--hugella-navy-secondary)]">
+              Cobrado créditos activos
+            </p>
+            <p className="mt-2 text-2xl font-bold">
+              {money.format(asNumber(cobranzasHistoricas.activos))}
+            </p>
+          </article>
+
+          <article className="rounded-xl border border-[var(--hugella-border)] bg-white p-5">
+            <p className="text-sm text-[var(--hugella-navy-secondary)]">
+              Cobrado créditos devueltos
+            </p>
+            <p className="mt-2 text-2xl font-bold">
+              {money.format(asNumber(cobranzasHistoricas.devueltos))}
+            </p>
+          </article>
+        </div>
+
+        <div className="rounded-xl border border-[var(--hugella-border)] bg-white p-5 sm:p-6">
+          <div className="mb-5">
+            <h3 className="text-lg font-bold">Cobrado por mes</h3>
+            <p className="mt-1 text-sm text-[var(--hugella-navy-secondary)]">
+              Pagos válidos registrados desde el inicio.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="py-3 pr-4">Mes</th>
+                  <th className="py-3 pr-4 text-right">Pagos</th>
+                  <th className="py-3 text-right">Cobrado</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {cobranzasHistoricas.por_mes.map((fila) => (
+                  <tr
+                    key={fila.mes}
+                    className="border-b border-[var(--hugella-border)]"
+                  >
+                    <td className="py-3 pr-4">
+                      {new Intl.DateTimeFormat("es-AR", {
+                        month: "long",
+                        year: "numeric",
+                        timeZone: "America/Argentina/Buenos_Aires",
+                      }).format(new Date(`${fila.mes}T12:00:00-03:00`))}
+                    </td>
+
+                    <td className="py-3 pr-4 text-right">
+                      {fila.cantidad_pagos}
+                    </td>
+
+                    <td className="py-3 text-right font-semibold">
+                      {money.format(asNumber(fila.importe))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-xl border border-[var(--hugella-border)] bg-white p-5 sm:p-6">
