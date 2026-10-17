@@ -11,10 +11,20 @@ const placeholderId = "00000000-0000-4000-8000-000000000000";
 const button = `min-h-12 rounded-lg bg-[var(--hugella-navy)] px-5 py-3 font-semibold text-white disabled:opacity-50 ${focusStyle}`;
 const card = "space-y-5 rounded-[var(--hugella-radius-card)] border border-[var(--hugella-border)] bg-white p-5 sm:p-7";
 
-export default function NewCreditForm() {
-  const [dni, setDni] = useState("");
-  const [lookup, setLookup] = useState<"idle" | "loading" | "existing" | "new" | "error">("idle");
-  const [client, setClient] = useState<AdminClient | null>(null);
+export default function NewCreditForm({
+  initialClient = null,
+}: {
+  initialClient?: AdminClient | null;
+}) {
+  const [dni, setDni] = useState(
+    initialClient ? normalizeDni(initialClient.dni) : ""
+  );
+
+  const [lookup, setLookup] = useState<
+    "idle" | "loading" | "existing" | "new" | "error"
+  >(initialClient ? "existing" : "idle");
+
+  const [client, setClient] = useState<AdminClient | null>(initialClient);
   const [fields, setFields] = useState({ nombre: "", telefono: "", domicilio: "", ubicacion: "", inversion: "", producto: "", fecha: localDate(), cuotas: "", importe: "" });
   const [phase, setPhase] = useState<Phase>("editing");
   const [review, setReview] = useState<Review | null>(null);
@@ -103,7 +113,36 @@ export default function NewCreditForm() {
   return <div className="space-y-6">
     {error && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">{error}</p>}
     {phase === "editing" && <>
-      <form id="client-search-form" onSubmit={search} className={card}><label className="block"><span className="field-label">DNI del cliente</span><input name="dni" className="field-control" inputMode="numeric" autoComplete="off" value={dni} onChange={e => changeDni(e.target.value)} required /></label><button className={button} disabled={lookup === "loading"}>Buscar cliente</button><p role="status" aria-live="polite">{lookup === "loading" ? "Buscando cliente…" : lookup === "new" ? "El DNI no está registrado. Cargá los datos del cliente nuevo." : lookup === "existing" ? "Cliente encontrado. Sus datos se conservarán." : ""}</p></form>
+      {!initialClient && (
+        <form id="client-search-form" onSubmit={search} className={card}>
+          <label className="block">
+            <span className="field-label">DNI del cliente</span>
+            <input
+              name="dni"
+              className="field-control"
+              inputMode="numeric"
+              autoComplete="off"
+              value={dni}
+              onChange={e => changeDni(e.target.value)}
+              required
+            />
+          </label>
+
+          <button className={button} disabled={lookup === "loading"}>
+            Buscar cliente
+          </button>
+
+          <p role="status" aria-live="polite">
+            {lookup === "loading"
+              ? "Buscando cliente…"
+              : lookup === "new"
+                ? "El DNI no está registrado. Cargá los datos del cliente nuevo."
+                : lookup === "existing"
+                  ? "Cliente encontrado. Sus datos se conservarán."
+                  : ""}
+          </p>
+        </form>
+      )}
       {(lookup === "existing" || lookup === "new") && <form id="credit-data-form" className={card} onSubmit={prepare}>
         <h2 className="text-xl font-bold">Cliente</h2>
         {client ? <dl className="grid gap-3 sm:grid-cols-2">{[["Nombre", client.nombre], ["DNI", client.dni], ["Teléfono", client.telefono], ["Domicilio", client.domicilio], ["Ubicación", client.ubicacion]].map(([label, value]) => <div key={label}><dt className="font-semibold">{label}</dt><dd className="[overflow-wrap:anywhere]">{value || "Sin informar"}</dd></div>)}</dl> : <div className="grid gap-4 sm:grid-cols-2">{field("nombre", "Nombre")}{field("telefono", "Teléfono (opcional)", "tel", false)}{field("domicilio", "Domicilio (opcional)", "text", false)}{field("ubicacion", "Ubicación / enlace Maps (opcional)", "text", false)}</div>}
