@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import styles from "../admin.module.css";
+import { formatDateAR } from "@/utils/date-format";
 import { creationMoney, creditEconomics, focusStyle, isAdminClient, isCreditCreationResult, localDate, normalizeDni, validateCreditCreation, type AdminClient, type NewCreditCreationInput, type CreditCreationResult } from "../admin-types";
 
 type Phase = "editing" | "review" | "sending" | "uncertain" | "success";
@@ -106,7 +107,10 @@ export default function NewCreditForm({
   }
   function reset() {
     intention.current = null; wasUncertain.current = false; searchVersion.current++;
-    setDni(""); setLookup("idle"); setClient(null); setReview(null); setResult(null); setConfirmed(false); setError("");
+    setDni(initialClient ? normalizeDni(initialClient.dni) : "");
+    setLookup(initialClient ? "existing" : "idle");
+    setClient(initialClient);
+    setReview(null); setResult(null); setConfirmed(false); setError("");
     setFields({ nombre: "", telefono: "", domicilio: "", ubicacion: "", inversion: "", producto: "", fecha: localDate(), cuotas: "", importe: "" }); setPhase("editing");
   }
   const field = (key: keyof typeof fields, label: string, type = "text", required = true) => <label className="block"><span className="field-label">{label}</span><input className="field-control" name={key} type={type} required={required} value={fields[key]} inputMode={(key === "importe" || key === "inversion") ? "decimal" : key === "cuotas" ? "numeric" : undefined} onChange={e => setFields(old => ({ ...old, [key]: e.target.value }))} /></label>;
@@ -150,7 +154,7 @@ export default function NewCreditForm({
       </form>}
     </>}
     {review && ["review", "sending", "uncertain"].includes(phase) && <form id="credit-confirm-form" onSubmit={create} className={card}>
-      <h2 className="text-xl font-bold">Revisá antes de crear</h2><dl className="grid gap-4 sm:grid-cols-2">{[["Cliente", review.name], ["DNI", review.payload.p_dni], ["Producto", review.payload.p_producto], ["Fecha de entrega", review.payload.p_fecha_inicio], ["Cuotas", String(review.payload.p_cantidad_cuotas)], ["Importe por cuota", creationMoney(review.payload.p_importe_cuota)], ["Total contractual", creationMoney(review.payload.p_importe_cuota, review.payload.p_cantidad_cuotas)], ["Inversión", creationMoney(review.payload.p_inversion)], ["Ganancia prevista", creditEconomics(review.payload.p_importe_cuota, review.payload.p_cantidad_cuotas, review.payload.p_inversion).ganancia], ["Cuota de recuperación estimada", creditEconomics(review.payload.p_importe_cuota, review.payload.p_cantidad_cuotas, review.payload.p_inversion).recuperacion]].map(([label, value]) => <div key={label}><dt className="font-semibold">{label}</dt><dd>{value}</dd></div>)}</dl>
+      <h2 className="text-xl font-bold">Revisá antes de crear</h2><dl className="grid gap-4 sm:grid-cols-2">{[["Cliente", review.name], ["DNI", review.payload.p_dni], ["Producto", review.payload.p_producto], ["Fecha de entrega", formatDateAR(review.payload.p_fecha_inicio)], ["Cuotas", String(review.payload.p_cantidad_cuotas)], ["Importe por cuota", creationMoney(review.payload.p_importe_cuota)], ["Total contractual", creationMoney(review.payload.p_importe_cuota, review.payload.p_cantidad_cuotas)], ["Inversión", creationMoney(review.payload.p_inversion)], ["Ganancia prevista", creditEconomics(review.payload.p_importe_cuota, review.payload.p_cantidad_cuotas, review.payload.p_inversion).ganancia], ["Cuota de recuperación estimada", creditEconomics(review.payload.p_importe_cuota, review.payload.p_cantidad_cuotas, review.payload.p_inversion).recuperacion]].map(([label, value]) => <div key={label}><dt className="font-semibold">{label}</dt><dd>{value}</dd></div>)}</dl>
       <p>La recuperación es un umbral por cuotas: si supera la cantidad del plan, la inversión no se recupera dentro del crédito. El código se asignará automáticamente al crear el crédito.</p><label className={`${styles.creditConfirmation} flex items-start gap-3`}><input type="checkbox" className="mt-1 h-5 w-5 shrink-0" checked={confirmed} disabled={phase !== "review"} onChange={e => setConfirmed(e.target.checked)} /><span className="min-w-0 flex-1">Confirmo que los datos son correctos y quiero crear este crédito.</span></label>
       <div className="flex flex-col gap-3 sm:flex-row"><button className={button} disabled={!confirmed || phase === "sending"}>{phase === "sending" ? "Creando crédito…" : phase === "uncertain" ? "Reintentar misma solicitud" : "Crear crédito"}</button>{phase === "review" && <button type="button" className="min-h-12 rounded-lg border px-5" onClick={() => { setPhase("editing"); setReview(null); }}>Volver a editar</button>}</div>
       {(phase === "uncertain" || phase === "sending") && <p role="status" aria-live="polite">La intención se conserva solo mientras esta página permanezca abierta. No recargues ni cierres la página: no hay recuperación automática después de hacerlo.</p>}

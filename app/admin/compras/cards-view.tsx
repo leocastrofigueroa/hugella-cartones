@@ -3,6 +3,7 @@ import Link from 'next/link';
 import SummaryPayment from './summary-payment';
 import { useEffect, useState } from 'react';
 import { buttonStyle, cardStyle, inputStyle, money, validDate } from './purchase-types';
+import { formatDateAR } from '@/utils/date-format';
 type Card = {id:string;nombre:string;entidad:string;activo:boolean};
 type Summary = {periodo_id:string;fecha_cierre:string;fecha_vencimiento:string;total_obligaciones_hugella:number;total_pagado:number;saldo:number;estado:string};
 async function api(url:string, payload?:Record<string,string>) {
@@ -63,7 +64,7 @@ export default function CardsView() {
       <div inert={payPending}><Entry onDone={refresh}/></div>{editing && <div inert={payPending}><EditCard key={editing.id} card={editing} onPending={setEditPending} onDone={()=>{setEditing(null);refresh();}}/></div>}</section>
     {selected && <section className="space-y-4"><h2 className="text-xl font-semibold">Períodos / resúmenes</h2>{cards.find(c=>c.id===selected)?.activo && <div inert={payPending}><Entry key={selected} card={selected} onPending={setPeriodPending} onDone={()=>{setOffset(0);refresh();}}/></div>}
       {loading && <p role="status">Cargando…</p>}{error && <p role="alert">{error}</p>}{!loading&&!error&&rows.length===0 && <p>No hay períodos registrados para esta tarjeta.</p>}
-      {rows.map(row=><article key={row.periodo_id} className={`${cardStyle} space-y-2`}><p>Cierre: {row.fecha_cierre}</p><p>Vencimiento: {row.fecha_vencimiento}</p><p>Total obligaciones HUGELLA: {money(row.total_obligaciones_hugella,'ARS')}</p><p>Pagado: {money(row.total_pagado,'ARS')}</p><p>Saldo: {money(row.saldo,'ARS')}</p><p>Estado: {row.estado}</p><SummaryPayment locked={payPending||editPending||periodPending} row={row} card={cards.find(c=>c.id===selected)?.nombre+' · '+cards.find(c=>c.id===selected)?.entidad} onPending={setPayPending} onDone={refresh}/></article>)}
+      {rows.map(row=><article key={row.periodo_id} className={`${cardStyle} space-y-2`}><p>Cierre: {formatDateAR(row.fecha_cierre)}</p><p>Vencimiento: {formatDateAR(row.fecha_vencimiento)}</p><p>Total obligaciones HUGELLA: {money(row.total_obligaciones_hugella,'ARS')}</p><p>Pagado: {money(row.total_pagado,'ARS')}</p><p>Saldo: {money(row.saldo,'ARS')}</p><p>Estado: {row.estado}</p><SummaryPayment locked={payPending||editPending||periodPending} row={row} card={cards.find(c=>c.id===selected)?.nombre+' · '+cards.find(c=>c.id===selected)?.entidad} onPending={setPayPending} onDone={refresh}/></article>)}
       <div className="flex flex-wrap gap-3"><button className={buttonStyle} disabled={payPending||loading||offset===0} onClick={()=>page(offset-100)}>Anterior</button><button className={buttonStyle} disabled={payPending||loading||rows.length<100} onClick={()=>page(offset+100)}>Siguiente</button></div>
     </section>}</div>;
 }

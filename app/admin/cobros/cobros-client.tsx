@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatDateAR } from "@/utils/date-format";
 
 export type Cobro = {
   numero_registro: number | string;
@@ -27,11 +28,6 @@ const money = new Intl.NumberFormat("es-AR", {
 function asNumber(value: number | string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function formatDate(value: string) {
-  const [year, month, day] = value.split("-");
-  return `${day}/${month}/${year}`;
 }
 
 function normalize(value: string | null | undefined) {
@@ -244,7 +240,7 @@ export default function CobrosClient({ cobros }: { cobros: Cobro[] }) {
                   #{cobro.numero_registro}
                 </td>
                 <td className="whitespace-nowrap px-4 py-4">
-                  {formatDate(cobro.fecha_pago)}
+                  {formatDateAR(cobro.fecha_pago)}
                 </td>
                 <td className="px-4 py-4 font-semibold">
                   {cobro.cliente}

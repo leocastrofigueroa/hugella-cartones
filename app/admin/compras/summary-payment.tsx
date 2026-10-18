@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import { buttonStyle, cardStyle, inputStyle, money, validDate } from './purchase-types';
 import { paymentCents, centsNumber } from './payment-types';
+import { formatDateAR } from '@/utils/date-format';
 export type Summary = {periodo_id:string;fecha_cierre:string;fecha_vencimiento:string;total_obligaciones_hugella:number;total_pagado:number;saldo:number;estado:string};
 export default function SummaryPayment({row,card,onDone,onPending,locked=false}:{locked?:boolean;row:Summary;card:string;onDone:()=>void;onPending:(value:boolean)=>void}) {
   const [open,setOpen]=useState(false),[amount,setAmount]=useState(String(row.saldo)),[date,setDate]=useState('');
@@ -23,7 +24,7 @@ export default function SummaryPayment({row,card,onDone,onPending,locked=false}:
   }
   if(!eligible && !intent)return null;
   return <div className="space-y-3"><button className={buttonStyle} disabled={busy||(locked&&!intent)} onClick={()=>setOpen(true)}>Registrar pago</button>{open && <form onSubmit={save} className={`${cardStyle} space-y-3`}>
-    <h3 className="text-xl font-semibold">Pago real · {card}</h3><p>Cierre: {row.fecha_cierre} · Vencimiento: {row.fecha_vencimiento}</p><p>Total obligaciones HUGELLA: {money(row.total_obligaciones_hugella,'ARS')}</p><p>Pagado: {money(row.total_pagado,'ARS')} · Saldo pendiente: {money(row.saldo,'ARS')}</p><p>Estado: {row.estado}</p><p>Este pago registra una salida real de dinero.</p>
+    <h3 className="text-xl font-semibold">Pago real · {card}</h3><p>Cierre: {formatDateAR(row.fecha_cierre)} · Vencimiento: {formatDateAR(row.fecha_vencimiento)}</p><p>Total obligaciones HUGELLA: {money(row.total_obligaciones_hugella,'ARS')}</p><p>Pagado: {money(row.total_pagado,'ARS')} · Saldo pendiente: {money(row.saldo,'ARS')}</p><p>Estado: {row.estado}</p><p>Este pago registra una salida real de dinero.</p>
     <fieldset disabled={busy||!!intent} className="grid gap-3 sm:grid-cols-2"><label>Importe a pagar<input name="importe_pago" inputMode="decimal" className={inputStyle} value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Fecha de pago<input name="fecha_pago_resumen" type="date" className={inputStyle} value={date} onChange={e=>setDate(e.target.value)}/></label><label>Origen<input className={inputStyle} readOnly value="Caja Efectivo"/></label></fieldset>
     {error && <p role="alert">{error}</p>}{intent && <p>Conservamos UUID y datos para reintentar el mismo pago. No cierres esta página.</p>}
     <div className="flex flex-wrap gap-3"><button className={buttonStyle} disabled={busy||(locked&&!intent)}>{busy?'Registrando…':intent?'Reintentar mismo pago':'Confirmar pago'}</button><button type="button" className={buttonStyle} disabled={busy||!!intent} onClick={()=>setOpen(false)}>Cancelar</button></div>

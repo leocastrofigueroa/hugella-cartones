@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import ClientSignatureForm from "./client-signature-form";
+import { formatDateAR, formatDateTimeAR } from "@/utils/date-format";
 
 export const metadata: Metadata = {
     title: "Contrato digital | HUGELLA",
@@ -23,15 +24,6 @@ function amount(value: number | string | null) {
     return value == null ? "Sin informar" : money.format(Number(value));
 }
 
-function formatDate(value: string | null, withTime = false) {
-    if (!value) return "Sin informar";
-    const date = new Date(withTime ? value : `${value}T00:00:00Z`);
-    if (Number.isNaN(date.getTime())) return "Sin informar";
-    return new Intl.DateTimeFormat("es-AR", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-        ...(withTime ? { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Mendoza" } as const : { timeZone: "UTC" }),
-    }).format(date);
-}
 
 function Details({ items }: { items: [string, string | number | null][] }) {
     return (
@@ -132,7 +124,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
                     <p className="section-kicker">Contrato digital</p>
                     <h1 className="mt-2 text-2xl font-bold sm:text-3xl">Tu contrato HUGELLA</h1>
                     <p className="mt-3 leading-relaxed text-[var(--hugella-navy-secondary)]">Este documento contiene los datos de tu operación y las condiciones contractuales. Leé su contenido completo antes de continuar.</p>
-                    <Details items={[["Estado", contract.estado], ["Fecha del contrato", formatDate(contract.fecha_contrato)]]} />
+                    <Details items={[["Estado", contract.estado], ["Fecha del contrato", formatDateAR(contract.fecha_contrato, "Sin informar")]]} />
                 </section>
                 <section className={sectionStyle}>
                     <h2 className="text-xl font-bold">Vendedor</h2>
@@ -157,7 +149,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
                         ["Producto", contract.producto], ["Cantidad", contract.cantidad_producto],
                         ["Número de serie", contract.numero_serie],
                         ["Producto exhibido", contract.producto_exhibido == null ? null : contract.producto_exhibido ? "Sí" : "No"],
-                        ["Entrega prevista", formatDate(contract.fecha_entrega_prevista)],
+                        ["Entrega prevista", formatDateAR(contract.fecha_entrega_prevista, "Sin informar")],
                         ["Domicilio de entrega", contract.domicilio_entrega], ["Domicilio de cobro", contract.domicilio_cobro],
                         ["Observaciones de entrega", contract.observaciones_entrega],
                     ]} />
@@ -184,7 +176,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
                     <h2 className="text-xl font-bold">Firma empresarial</h2>
                     <Details items={[
                         ["Titular", contract.vendedor_titular_nombre], ["CUIT", contract.vendedor_titular_cuit],
-                        ["Fecha de aprobación", formatDate(contract.aprobado_at, true)], ["Aprobado por", approvedBy],
+                        ["Fecha de aprobación", formatDateTimeAR(contract.aprobado_at, "Sin informar")], ["Aprobado por", approvedBy],
                     ]} />
                     {signatureUrl ? (
                         <Image src={signatureUrl} alt={`Firma empresarial de ${contract.vendedor_titular_nombre}`} width={480} height={240} unoptimized className="mt-6 h-auto max-h-48 w-full max-w-sm object-contain object-left" />
@@ -203,7 +195,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
                                 ["Cliente", contract.cliente_nombre],
                                 [
                                     "Fecha y hora de firma",
-                                    formatDate(contract.firmado_at, true),
+                                    formatDateTimeAR(contract.firmado_at, "Sin informar"),
                                 ],
                             ]}
                         />

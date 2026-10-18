@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { displayCents, inputStyle, secondaryButtonInteractionStyle } from './purchase-types';
 import { emptyPayment, installments, paymentCents, paymentLabels, type PaymentDraft, type PaymentMedium, type PaymentMode } from './payment-types';
+import { formatDateAR } from '@/utils/date-format';
 type Card = { id: string; nombre: string; entidad: string; activo: boolean };
 type Period = { id: string; orden: number; fecha_cierre: string; fecha_vencimiento: string };
 export default function PaymentFields({ total, mode, drafts, onMode, onChange }: { total: bigint; mode: PaymentMode; drafts: PaymentDraft[]; onMode: (mode: PaymentMode) => void; onChange: (drafts: PaymentDraft[]) => void }) {
@@ -59,7 +60,7 @@ export default function PaymentFields({ total, mode, drafts, onMode, onChange }:
               if (card && !periods[card.id]) void loadPeriods(card.id);
             }}><option value="">Seleccionar tarjeta</option>{cards.map(card => <option key={card.id} value={card.id}>{card.nombre} · {card.entidad}</option>)}</select></label>
             <label className="block">Cantidad de cuotas<input name={`cuotas-${index}`} type="number" min="1" max="1000" step="1" className={inputStyle} value={draft.cuotas} onChange={event => change(index, { cuotas: event.target.value })}/></label>
-            <label className="block">Primer período (opcional)<select name={`periodo-${index}`} className={inputStyle} disabled={!draft.tarjeta || periodBusy[draft.tarjeta]} value={draft.primero} onChange={event => change(index, { primero: event.target.value })}><option value="">Sin asignar</option>{(periods[draft.tarjeta] || []).map(period => <option key={period.id} value={period.id}>Cierre {period.fecha_cierre} · Vence {period.fecha_vencimiento}</option>)}</select></label>
+            <label className="block">Primer período (opcional)<select name={`periodo-${index}`} className={inputStyle} disabled={!draft.tarjeta || periodBusy[draft.tarjeta]} value={draft.primero} onChange={event => change(index, { primero: event.target.value })}><option value="">Sin asignar</option>{(periods[draft.tarjeta] || []).map(period => <option key={period.id} value={period.id}>Cierre {formatDateAR(period.fecha_cierre)} · Vence {formatDateAR(period.fecha_vencimiento)}</option>)}</select></label>
             {draft.tarjeta && <><p>No se inventan fechas: las cuotas sin período quedan pendientes de asignación.</p>{periodBusy[draft.tarjeta] && <p role="status">Consultando períodos…</p>}{periodErrors[draft.tarjeta] && <p role="alert">{periodErrors[draft.tarjeta]}</p>}{(periodErrors[draft.tarjeta] || (periods[draft.tarjeta]?.length ?? 0) >= 100) && <button type="button" className={`${secondaryButtonInteractionStyle} min-h-12 rounded-lg border px-4`} disabled={periodBusy[draft.tarjeta]} onClick={() => void loadPeriods(draft.tarjeta, periodErrors[draft.tarjeta] ? 0 : periods[draft.tarjeta].length)}>Consultar períodos</button>}</>}
             {preview.length > 0 && <details><summary className="min-h-12 cursor-pointer py-3">Vista previa de {preview.length} cuotas</summary><ol className="max-h-48 overflow-y-auto">{preview.map((amount, i) => <li key={i}>{i + 1}: {displayCents(amount)} ARS</li>)}</ol><p>El reparto definitivo lo calcula Supabase.</p></details>}
           </>}

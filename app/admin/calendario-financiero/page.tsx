@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { formatDateAR } from "@/utils/date-format";
 
 type Obligacion = {
   obligacion_id: string;
@@ -29,14 +30,6 @@ const money = new Intl.NumberFormat("es-AR", {
 function asNumber(value: number | string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "Sin fecha asignada";
-
-  return new Intl.DateTimeFormat("es-AR", {
-    timeZone: "America/Argentina/Buenos_Aires",
-  }).format(new Date(`${value}T12:00:00-03:00`));
 }
 
 export default async function CalendarioFinancieroPage() {
@@ -190,7 +183,7 @@ export default async function CalendarioFinancieroPage() {
                   }
                 >
                   <td className="whitespace-nowrap px-4 py-4">
-                    {formatDate(obligacion.fecha_vencimiento)}
+                    {formatDateAR(obligacion.fecha_vencimiento, "Sin fecha asignada")}
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-4 font-semibold">
@@ -198,7 +191,7 @@ export default async function CalendarioFinancieroPage() {
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-4">
-                    {formatDate(obligacion.fecha_compra)}
+                    {formatDateAR(obligacion.fecha_compra, "Sin fecha asignada")}
                   </td>
 
                   <td className="min-w-[260px] px-4 py-4">

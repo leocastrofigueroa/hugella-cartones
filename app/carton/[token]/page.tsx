@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { formatDateAR } from "@/utils/date-format";
 
 type PublicPayment = {
   fecha_pago: string;
@@ -30,18 +31,7 @@ const money = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
-const date = new Intl.DateTimeFormat("es-AR", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function formatDate(value: string) {
-  return date.format(new Date(`${value.slice(0, 10)}T00:00:00Z`));
-}
 
 function CheckIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m5 12 4 4L19 6" /></svg>;
@@ -123,7 +113,7 @@ export default async function PublicCreditPage({ params }: PageProps<"/carton/[t
               <div className="mt-7"><div className="mb-2 flex justify-between text-sm"><span className="text-white/65">Progreso del plan</span><span className="font-semibold">{credit.cuotas_pagadas} de {credit.cantidad_cuotas} cuotas</span></div><div className="h-2 overflow-hidden rounded-[2px] bg-white/10"><div className="h-full rounded-[2px] bg-[linear-gradient(90deg,var(--hugella-gold-dark),var(--hugella-gold-light))]" style={{ width: `${progress}%` }} /></div></div>
             </div>
             <div className="grid grid-cols-2 gap-x-5 gap-y-6 border-t border-white/10 pt-7 lg:border-l lg:border-t-0 lg:pl-9 lg:pt-0">
-              <div><p className="detail-label">Fecha de inicio</p><p className="detail-value">{formatDate(credit.fecha_inicio)}</p></div><div><p className="detail-label">Plan</p><p className="detail-value">{credit.cantidad_cuotas} cuotas</p></div><div><p className="detail-label">Cuotas pagadas</p><p className="detail-value text-[var(--hugella-gold-light)]">{credit.cuotas_pagadas}</p></div><div><p className="detail-label">Cuotas pendientes</p><p className="detail-value">{credit.cuotas_pendientes}</p></div>
+              <div><p className="detail-label">Fecha de inicio</p><p className="detail-value">{formatDateAR(credit.fecha_inicio)}</p></div><div><p className="detail-label">Plan</p><p className="detail-value">{credit.cantidad_cuotas} cuotas</p></div><div><p className="detail-label">Cuotas pagadas</p><p className="detail-value text-[var(--hugella-gold-light)]">{credit.cuotas_pagadas}</p></div><div><p className="detail-label">Cuotas pendientes</p><p className="detail-value">{credit.cuotas_pendientes}</p></div>
             </div>
           </div>
         </section>
@@ -131,7 +121,7 @@ export default async function PublicCreditPage({ params }: PageProps<"/carton/[t
         <section className="mt-10">
           <div className="mb-4"><p className="section-kicker">Movimientos</p><h2 className="text-2xl font-bold tracking-tight">Historial de pagos</h2></div>
           <div className="overflow-hidden rounded-[var(--hugella-radius-md)] border border-[var(--hugella-border)] bg-white shadow-[0_1px_4px_rgb(6_31_53/0.04)]">
-            {credit.pagos.length > 0 ? <><div className="hidden grid-cols-[1fr_1fr_1fr_auto] gap-4 border-b border-[var(--hugella-navy-deep)] bg-[var(--hugella-navy)] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white/75 sm:grid"><span>Aplicación</span><span>Fecha</span><span>Medio</span><span>Importe</span></div><div className="divide-y divide-[var(--hugella-border)]">{credit.pagos.map((payment, index) => <article key={`${payment.fecha_pago}-${index}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-5 sm:grid-cols-[1fr_1fr_1fr_auto] sm:px-6"><span className="hidden font-semibold sm:block">{payment.cuotas_aplicadas === 1 ? "1 cuota" : `${payment.cuotas_aplicadas} cuotas`}</span><span className="grid h-9 w-9 place-items-center rounded-[var(--hugella-radius-sm)] bg-[var(--hugella-gold)]/12 text-[var(--hugella-gold-dark)] sm:hidden"><CheckIcon /></span><div className="sm:contents"><div><p className="font-semibold sm:hidden">{payment.cuotas_aplicadas === 1 ? "1 cuota aplicada" : `${payment.cuotas_aplicadas} cuotas aplicadas`}</p><p className="text-sm text-[var(--muted)] sm:text-base">{formatDate(payment.fecha_pago)}</p></div><span className="hidden text-[var(--muted)] sm:block">{payment.medio_pago}</span></div><span className="font-bold tabular-nums text-[var(--hugella-navy)]">{money.format(Number(payment.importe))}</span></article>)}</div></> : <p className="px-6 py-10 text-center text-[var(--muted)]">Todavía no hay pagos registrados.</p>}
+            {credit.pagos.length > 0 ? <><div className="hidden grid-cols-[1fr_1fr_1fr_auto] gap-4 border-b border-[var(--hugella-navy-deep)] bg-[var(--hugella-navy)] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white/75 sm:grid"><span>Aplicación</span><span>Fecha</span><span>Medio</span><span>Importe</span></div><div className="divide-y divide-[var(--hugella-border)]">{credit.pagos.map((payment, index) => <article key={`${payment.fecha_pago}-${index}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-5 sm:grid-cols-[1fr_1fr_1fr_auto] sm:px-6"><span className="hidden font-semibold sm:block">{payment.cuotas_aplicadas === 1 ? "1 cuota" : `${payment.cuotas_aplicadas} cuotas`}</span><span className="grid h-9 w-9 place-items-center rounded-[var(--hugella-radius-sm)] bg-[var(--hugella-gold)]/12 text-[var(--hugella-gold-dark)] sm:hidden"><CheckIcon /></span><div className="sm:contents"><div><p className="font-semibold sm:hidden">{payment.cuotas_aplicadas === 1 ? "1 cuota aplicada" : `${payment.cuotas_aplicadas} cuotas aplicadas`}</p><p className="text-sm text-[var(--muted)] sm:text-base">{formatDateAR(payment.fecha_pago)}</p></div><span className="hidden text-[var(--muted)] sm:block">{payment.medio_pago}</span></div><span className="font-bold tabular-nums text-[var(--hugella-navy)]">{money.format(Number(payment.importe))}</span></article>)}</div></> : <p className="px-6 py-10 text-center text-[var(--muted)]">Todavía no hay pagos registrados.</p>}
           </div>
         </section>
       </div>

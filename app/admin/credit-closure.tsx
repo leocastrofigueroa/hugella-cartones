@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { focusStyle, localDate, type Credit, type CreditClosure, type CreditClosureInput, isClosedCredit } from "./admin-types";
+import { formatDateAR, formatDateTimeAR } from "@/utils/date-format";
 
 type Props = {
   credit: Credit;
@@ -66,11 +67,11 @@ export default function CreditClosureForm({ credit, disabled, onClose }: Props) 
     {closed ? <>
       <p className="mt-3 font-semibold">{credit.estado}. Sin cobranza futura. Los pagos históricos se conservan.</p>
       {closure ? <dl className="mt-4 space-y-2 text-sm [overflow-wrap:anywhere]">
-        <div><dt>Fecha de cierre</dt><dd>{closure.fecha}</dd></div>
+        <div><dt>Fecha de cierre</dt><dd>{formatDateAR(closure.fecha)}</dd></div>
         <div><dt>Motivo</dt><dd>{closure.motivo}</dd></div>
         <div><dt>Observaciones</dt><dd>{closure.observaciones || "Sin observaciones"}</dd></div>
         <div><dt>Administrador</dt><dd>{closure.actor_id}</dd></div>
-        <div><dt>Registrado</dt><dd>{closure.created_at}</dd></div>
+        <div><dt>Registrado</dt><dd>{formatDateTimeAR(closure.created_at)}</dd></div>
       </dl> : !error && <p role="status" className="mt-3">Consultando cierre…</p>}
     </> : <form onSubmit={submit} className="mt-4">
       <p className="mb-4 text-sm">El cierre conserva el plan y los pagos realizados. Desde esa fecha deja de proyectar cobros y de mostrarse al cliente.</p>

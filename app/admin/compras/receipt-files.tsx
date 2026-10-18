@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { secondaryButtonInteractionStyle, buttonStyle, cardStyle } from './purchase-types';
+import { formatDateTimeAR } from '@/utils/date-format';
 export type Attachment = { id:string; file:File };
 type Receipt = {id:string;nombre_original:string;mime_type:string;tamano_bytes:number;estado:'PENDIENTE'|'DISPONIBLE'|'ANULADO';created_at:string;motivo_anulacion:string|null;anulado_at:string|null;anulado_por:string|null;actor_id:string};
 const accept='image/jpeg,image/png,application/pdf';
@@ -59,11 +60,11 @@ export default function ReceiptFiles({purchaseId,initialFiles=[],onBusyChange}:{
       if(kind==='annul'){setAnnul(null);setReason('');}await load();
     }catch(cause){setError(cause instanceof Error?cause.message:'Resultado incierto.');}finally{lock.current=false;setBusy(false);}
   }
-  function receipt(row:Receipt){return <li key={row.id} className="space-y-2 rounded-lg border p-3"><p className="break-all">{row.nombre_original} · {(row.tamano_bytes/1024).toFixed(1)} KiB</p><p className="text-sm">{row.estado} · {new Date(row.created_at).toLocaleString('es-AR')}</p>
+  function receipt(row:Receipt){return <li key={row.id} className="space-y-2 rounded-lg border p-3"><p className="break-all">{row.nombre_original} · {(row.tamano_bytes/1024).toFixed(1)} KiB</p><p className="text-sm">{row.estado} · {formatDateTimeAR(row.created_at)}</p>
     {row.estado!=='PENDIENTE'&&<a className={`${secondaryButtonInteractionStyle} mr-3 inline-flex min-h-12 items-center rounded-lg border border-slate-300 bg-white px-5 py-3 font-semibold text-[var(--hugella-navy)]`} target="_blank" rel="noopener noreferrer" href={`/api/admin/comprobantes/${row.id}/archivo`}>Ver comprobante</a>}
     {row.estado!=='ANULADO'&&<button type="button" disabled={busy} className={buttonStyle} onClick={()=>{setAnnul(row.id);setReason('');}}>Anular comprobante</button>}
     {row.estado==='PENDIENTE'&&<div className="space-y-2"><p>No confirmado. Recuperá el archivo ya subido o seleccioná exactamente el original para reintentar con el mismo UUID.</p><button type="button" disabled={busy} className={`${secondaryButtonInteractionStyle} min-h-12 underline`} onClick={()=>void action(row.id,'recover')}>Recuperar archivo subido</button><label className="block">Reintentar archivo original<input type="file" accept={accept} disabled={busy} className="block min-h-12 w-full min-w-0" onChange={event=>{const file=event.target.files?.[0];event.target.value='';if(file)void upload([{id:row.id,file}]);}}/></label></div>}
-    {row.estado==='ANULADO'&&<p className="break-words">Motivo: {row.motivo_anulacion} · {row.anulado_at&&new Date(row.anulado_at).toLocaleString('es-AR')} · actor {row.anulado_por}</p>}
+    {row.estado==='ANULADO'&&<p className="break-words">Motivo: {row.motivo_anulacion} · {row.anulado_at&&formatDateTimeAR(row.anulado_at)} · actor {row.anulado_por}</p>}
   </li>;}
   return <section className="space-y-4"><h2 className="text-xl font-semibold">Comprobantes digitales</h2>{error&&<p role="alert">{error}</p>}{busy&&<p role="status">Procesando comprobantes. La compra ya está registrada.</p>}
     <button type="button" className={buttonStyle} disabled={busy} onClick={()=>void load().catch(()=>setError('No se pudo consultar.'))}>Actualizar comprobantes</button>

@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { formatDateAR } from "@/utils/date-format";
 
 const money = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -50,12 +51,6 @@ type PanelHistoricalCollections = {
   por_mes: PanelHistoricalMonth[];
 };
 
-function formatDate(value: string | null) {
-  if (!value) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-AR", {
-    timeZone: "America/Argentina/Buenos_Aires",
-  }).format(new Date(`${value}T12:00:00-03:00`));
-}
 
 export default async function FinanzasPage() {
   const supabase = await createClient();
@@ -411,7 +406,7 @@ export default async function FinanzasPage() {
         <article className="rounded-xl border border-[var(--hugella-border)] bg-white p-5 sm:p-6">
           <p className="section-kicker">Próximo vencimiento</p>
           <h2 className="mt-1 text-xl font-bold">
-            {formatDate(proximoVencimiento)}
+            {formatDateAR(proximoVencimiento, "Sin fecha asignada")}
           </h2>
           <p className="mt-4 text-3xl font-bold">
             {money.format(importeProximoVencimiento)}
