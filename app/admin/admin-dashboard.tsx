@@ -356,6 +356,17 @@ export default function AdminDashboard({ email }: { email: string }) {
                   </Link>
 
                   <Link
+                    href="/admin/creditos"
+                    aria-disabled={disabled}
+                    onClick={(event) => {
+                      if (disabled) event.preventDefault();
+                    }}
+                    className={`inline-flex min-h-12 items-center rounded-lg border px-5 py-3 font-semibold ${focusStyle}`}
+                  >
+                    Créditos
+                  </Link>
+
+                  <Link
                     href="/admin/compras"
                     aria-disabled={disabled}
                     onClick={(event) => {
