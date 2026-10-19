@@ -238,7 +238,147 @@ const sections = [
             <strong>Proyección mensual:</strong> previsión de cobranzas y
             obligaciones futuras.
           </p>
+
+          <p>
+            <strong>Honorarios y retiros:</strong> registro de dinero retirado
+            de HUGELLA por honorarios, adelantos o retiros extraordinarios.
+          </p>
+
+          <p>
+            <strong>Cobertura financiera:</strong> seguimiento de la
+            recaudación disponible para cubrir los próximos vencimientos de
+            tarjetas.
+          </p>
         </div>
+      </>
+    ),
+  },
+  {
+    title: "Honorarios y retiros",
+    content: (
+      <>
+        <p>
+          Esta sección registra las salidas de dinero correspondientes a
+          honorarios, adelantos y retiros extraordinarios.
+        </p>
+
+        <ol className="mt-3 list-decimal space-y-2 pl-5">
+          <li>Ingresá la fecha real en que se retiró el dinero.</li>
+          <li>Indicá la persona que recibió el importe.</li>
+          <li>
+            Seleccioná si corresponde a Honorario, Adelanto o Retiro
+            extraordinario.
+          </li>
+          <li>Ingresá el importe y el medio utilizado.</li>
+          <li>Agregá una observación cuando sea necesario.</li>
+          <li>Revisá los datos antes de registrar el movimiento.</li>
+        </ol>
+
+        <p className="mt-3">
+          Los movimientos registrados forman parte del circuito financiero de
+          HUGELLA y se descuentan de la recaudación disponible del período en
+          que fueron realizados.
+        </p>
+
+        <p className="mt-3">
+          Los totales de <strong>Retirado este mes</strong> y{" "}
+          <strong>Retirado este año</strong> consideran únicamente movimientos
+          válidos.
+        </p>
+
+        <p className="mt-3 font-semibold">
+          Si un movimiento fue cargado incorrectamente, utilizá Anular. No
+          elimines registros directamente de la base de datos.
+        </p>
+
+        <p className="mt-3">
+          Un movimiento anulado permanece visible en el historial junto con su
+          motivo y deja de formar parte de los cálculos financieros.
+        </p>
+      </>
+    ),
+  },
+  {
+    title: "Cobertura financiera",
+    content: (
+      <>
+        <p>
+          Esta pantalla muestra si la recaudación disponible alcanza para
+          cubrir las obligaciones de tarjetas del ciclo financiero actual.
+        </p>
+
+        <p className="mt-3">
+          Los ciclos no utilizan meses calendario. Cada ciclo comienza el día
+          siguiente al vencimiento anterior y termina el día del próximo
+          vencimiento de tarjeta.
+        </p>
+
+        <div className="mt-3 space-y-2">
+          <p>
+            <strong>Saldo inicial:</strong> resultado que viene del ciclo
+            anterior. Puede ser un superávit o un faltante pendiente.
+          </p>
+
+          <p>
+            <strong>Cobrado en el ciclo:</strong> suma de los pagos válidos
+            registrados durante las fechas del ciclo.
+          </p>
+
+          <p>
+            <strong>Honorarios y retiros:</strong> dinero retirado durante ese
+            mismo período.
+          </p>
+
+          <p>
+            <strong>Disponible para tarjetas:</strong> dinero que realmente
+            queda disponible después de considerar saldo anterior, cobranzas y
+            retiros.
+          </p>
+
+          <p>
+            <strong>Objetivo tarjetas:</strong> suma de las obligaciones reales
+            correspondientes al vencimiento del ciclo.
+          </p>
+
+          <p>
+            <strong>Resultado:</strong> indica cuánto falta, si el objetivo fue
+            alcanzado exactamente o cuánto superávit queda.
+          </p>
+        </div>
+
+        <p className="mt-3">
+          La lectura básica del circuito es:
+        </p>
+
+        <div className="mt-3 rounded-lg border border-[var(--hugella-border)] bg-slate-50 p-4 font-semibold">
+          Saldo anterior + cobranzas − honorarios/retiros − tarjetas =
+          resultado del ciclo.
+        </div>
+
+        <p className="mt-3">
+          Si el resultado es negativo, el sistema muestra{" "}
+          <strong className="text-red-700">Faltan</strong>. Si queda exactamente
+          cubierto, muestra el objetivo alcanzado. Si sobra dinero, muestra{" "}
+          <strong className="text-blue-700">Superávit</strong>.
+        </p>
+
+        <p className="mt-3">
+          El superávit pasa automáticamente como saldo inicial al ciclo
+          siguiente. De la misma manera, un faltante pendiente también se
+          arrastra y debe ser recuperado con la recaudación posterior.
+        </p>
+
+        <p className="mt-3 font-semibold">
+          En la operatoria de HUGELLA, los honorarios se retiran cuando existe
+          dinero suficiente para afrontar las tarjetas. Una vez retirados,
+          dejan de formar parte del dinero disponible.
+        </p>
+
+        <p className="mt-3">
+          El Resumen financiero muestra una versión compacta del ciclo actual.
+          Para revisar todos los períodos y el detalle completo utilizá
+          Cobertura financiera.
+        </p>
       </>
     ),
   },
