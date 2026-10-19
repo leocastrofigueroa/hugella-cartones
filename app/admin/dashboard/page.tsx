@@ -26,6 +26,36 @@ function formatMonth(value: string) {
   }).format(new Date(`${value}T12:00:00-03:00`));
 }
 
+function fechaComercialArgentina() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  return `${year}-${month}-${day}`;
+}
+
+function inicioSemanaArgentina(fecha: string) {
+  const date = new Date(`${fecha}T12:00:00-03:00`);
+  const day = date.getDay();
+  const daysSinceMonday = day === 0 ? 6 : day - 1;
+
+  date.setDate(date.getDate() - daysSinceMonday);
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 type PanelCredit = {
   codigo: string;
   cliente: string | null;
@@ -47,6 +77,13 @@ type HistoricalCollections = {
   total: unknown;
 };
 
+type DashboardCobro = {
+  fecha_pago: string;
+  importe: number | string;
+  estado: string;
+  codigo_credito: string;
+};
+
 type MonthlyProjection = {
   mes: string;
   tipo_mes: "HISTORICO" | "ACTUAL" | "FUTURO";
@@ -63,12 +100,14 @@ export default async function DashboardPage() {
   const [
     { data: panelData, error: panelError },
     { data: projectionData, error: projectionError },
+    { data: cobrosData, error: cobrosError },
   ] = await Promise.all([
     supabase.rpc("obtener_panel_financiero_admin"),
     supabase.rpc("obtener_proyeccion_mensual_financiera_admin"),
+    supabase.rpc("listar_cobros_admin"),
   ]);
 
-  if (panelError || projectionError) {
+  if (panelError || projectionError || cobrosError) {
     return (
       <section className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-900">
         <h1 className="text-2xl font-bold">Dashboard</h1>
@@ -76,7 +115,9 @@ export default async function DashboardPage() {
           No se pudieron cargar todos los datos financieros.
         </p>
         <p className="mt-2 text-sm">
-          {panelError?.message ?? projectionError?.message}
+          {panelError?.message ??
+            projectionError?.message ??
+            cobrosError?.message}
         </p>
       </section>
     );
@@ -89,6 +130,34 @@ export default async function DashboardPage() {
   };
 
   const meses = (projectionData ?? []) as MonthlyProjection[];
+  const cobros = (cobrosData ?? []) as DashboardCobro[];
+
+  const hoy = fechaComercialArgentina();
+  const inicioSemana = inicioSemanaArgentina(hoy);
+
+  const cobrosValidos = cobros.filter(
+    (cobro) =>
+      cobro.estado === "VALIDO" &&
+      cobro.codigo_credito !== "CR-0048"
+  );
+
+  const cobradoHoy = cobrosValidos
+    .filter((cobro) => cobro.fecha_pago === hoy)
+    .reduce(
+      (total, cobro) => total + asNumber(cobro.importe),
+      0
+    );
+
+  const cobradoSemana = cobrosValidos
+    .filter(
+      (cobro) =>
+        cobro.fecha_pago >= inicioSemana &&
+        cobro.fecha_pago <= hoy
+    )
+    .reduce(
+      (total, cobro) => total + asNumber(cobro.importe),
+      0
+    );
 
   const creditos = (panel.creditos ?? []).filter(
     (credito) => credito.codigo !== "CR-0048" && !credito.devuelto
@@ -176,6 +245,36 @@ export default async function DashboardPage() {
         <p className="mt-2 text-sm text-[var(--hugella-navy-secondary)]">
           Vista ejecutiva de créditos, cobranzas y compromisos financieros.
         </p>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2">
+        <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+          <p className="text-sm font-semibold text-emerald-800">
+            Cobrado hoy
+          </p>
+
+          <p className="mt-2 text-3xl font-bold text-emerald-950">
+            {money.format(cobradoHoy)}
+          </p>
+
+          <p className="mt-2 text-xs text-emerald-800">
+            Pagos válidos con fecha de hoy.
+          </p>
+        </article>
+
+        <article className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+          <p className="text-sm font-semibold text-blue-800">
+            Cobrado esta semana
+          </p>
+
+          <p className="mt-2 text-3xl font-bold text-blue-950">
+            {money.format(cobradoSemana)}
+          </p>
+
+          <p className="mt-2 text-xs text-blue-800">
+            Desde el lunes hasta hoy.
+          </p>
+        </article>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
