@@ -14,8 +14,14 @@ const card = "space-y-5 rounded-[var(--hugella-radius-card)] border border-[var(
 
 export default function NewCreditForm({
   initialClient = null,
+  initialPurchase = null,
 }: {
   initialClient?: AdminClient | null;
+  initialPurchase?: {
+    id: string;
+    producto: string;
+    inversion: string;
+  } | null;
 }) {
   const [dni, setDni] = useState(
     initialClient ? normalizeDni(initialClient.dni) : ""
@@ -26,7 +32,17 @@ export default function NewCreditForm({
   >(initialClient ? "existing" : "idle");
 
   const [client, setClient] = useState<AdminClient | null>(initialClient);
-  const [fields, setFields] = useState({ nombre: "", telefono: "", domicilio: "", ubicacion: "", inversion: "", producto: "", fecha: localDate(), cuotas: "", importe: "" });
+  const [fields, setFields] = useState({
+    nombre: "",
+    telefono: "",
+    domicilio: "",
+    ubicacion: "",
+    inversion: initialPurchase?.inversion ?? "",
+    producto: initialPurchase?.producto ?? "",
+    fecha: localDate(),
+    cuotas: "",
+    importe: "",
+  });
   const [phase, setPhase] = useState<Phase>("editing");
   const [review, setReview] = useState<Review | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -89,10 +105,41 @@ export default function NewCreditForm({
     const payload = intention.current;
     setPhase("sending"); setError("");
     try {
-      const response = await fetch("/api/admin/creditos", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", body: JSON.stringify(payload) });
+      const endpoint = initialPurchase
+        ? "/api/admin/creditos/desde-compra"
+        : "/api/admin/creditos";
+
+      const requestBody = initialPurchase
+        ? { ...payload, p_compra_gasto_id: initialPurchase.id }
+        : payload;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(requestBody),
+      });
+
       const body = await response.json();
-      if (response.ok && isCreditCreationResult(body?.result, payload)) { setResult(body.result); setPhase("success"); return; }
-      const safeCodes = ["VALIDATION", "DNI_CONFLICT", "IDENTITY", "CODE_LIMIT", "REJECTED"];
+
+      if (
+        response.ok &&
+        isCreditCreationResult(body?.result, payload)
+      ) {
+        setResult(body.result);
+        setPhase("success");
+        return;
+      }
+
+      const safeCodes = [
+        "VALIDATION",
+        "DNI_CONFLICT",
+        "IDENTITY",
+        "CODE_LIMIT",
+        "REJECTED",
+        "PURCHASE_ALREADY_LINKED",
+        "PURCHASE_ANNULLED",
+      ];
       const preflight = ["SESSION", "PERMISSION", "ORIGIN"];
       if (!response.ok && body?.outcome === "rejected" && (safeCodes.includes(body.code) || (!wasUncertain.current && preflight.includes(body.code)))) {
         intention.current = null; wasUncertain.current = false; setPhase("editing"); setReview(null);
@@ -111,7 +158,17 @@ export default function NewCreditForm({
     setLookup(initialClient ? "existing" : "idle");
     setClient(initialClient);
     setReview(null); setResult(null); setConfirmed(false); setError("");
-    setFields({ nombre: "", telefono: "", domicilio: "", ubicacion: "", inversion: "", producto: "", fecha: localDate(), cuotas: "", importe: "" }); setPhase("editing");
+    setFields({
+      nombre: "",
+      telefono: "",
+      domicilio: "",
+      ubicacion: "",
+      inversion: initialPurchase?.inversion ?? "",
+      producto: initialPurchase?.producto ?? "",
+      fecha: localDate(),
+      cuotas: "",
+      importe: "",
+    }); setPhase("editing");
   }
   const field = (key: keyof typeof fields, label: string, type = "text", required = true) => <label className="block"><span className="field-label">{label}</span><input className="field-control" name={key} type={type} required={required} value={fields[key]} inputMode={(key === "importe" || key === "inversion") ? "decimal" : key === "cuotas" ? "numeric" : undefined} onChange={e => setFields(old => ({ ...old, [key]: e.target.value }))} /></label>;
   return <div className="space-y-6">
@@ -159,6 +216,6 @@ export default function NewCreditForm({
       <div className="flex flex-col gap-3 sm:flex-row"><button className={button} disabled={!confirmed || phase === "sending"}>{phase === "sending" ? "Creando crédito…" : phase === "uncertain" ? "Reintentar misma solicitud" : "Crear crédito"}</button>{phase === "review" && <button type="button" className="min-h-12 rounded-lg border px-5" onClick={() => { setPhase("editing"); setReview(null); }}>Volver a editar</button>}</div>
       {(phase === "uncertain" || phase === "sending") && <p role="status" aria-live="polite">La intención se conserva solo mientras esta página permanezca abierta. No recargues ni cierres la página: no hay recuperación automática después de hacerlo.</p>}
     </form>}
-    {phase === "success" && result && review && <section className={card} aria-live="polite"><h2 className="text-xl font-bold">Crédito creado correctamente.</h2><p className="text-2xl font-bold">{result.codigo}</p><p>Cliente: {review.name}</p><p>Producto: {review.payload.p_producto}</p>{result.ya_procesada && <p>Esta solicitud ya estaba procesada.</p>}<div className="flex flex-col gap-3 sm:flex-row"><Link href="/admin" className={button}>Volver al Admin</Link><button className={button} type="button" onClick={reset}>Crear otro crédito</button></div></section>}
+    {phase === "success" && result && review && <section className={card} aria-live="polite"><h2 className="text-xl font-bold">Crédito creado correctamente.</h2><p className="text-2xl font-bold">{result.codigo}</p><p>Cliente: {review.name}</p><p>Producto: {review.payload.p_producto}</p>{initialPurchase && <p>Este crédito quedó asociado a la compra registrada.</p>}{result.ya_procesada && <p>Esta solicitud ya estaba procesada.</p>}<div className="flex flex-col gap-3 sm:flex-row"><Link href="/admin" className={button}>Volver al Admin</Link>{!initialPurchase && <button className={button} type="button" onClick={reset}>Crear otro crédito</button>}</div></section>}
   </div>;
 }
