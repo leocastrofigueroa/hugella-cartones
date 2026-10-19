@@ -55,15 +55,17 @@ function situacionCuotas(credito: CreditoListado) {
     credito.cuotas_pagadas - credito.cuotas_deberia_llevar;
 
   if (diferencia < 0) {
+    const cantidad = Math.abs(diferencia);
+
     return {
-      label: `${Math.abs(diferencia)} atrasadas`,
+      label: `${cantidad} ${cantidad === 1 ? "atrasada" : "atrasadas"}`,
       className: "text-red-700",
     };
   }
 
   if (diferencia > 0) {
     return {
-      label: `${diferencia} adelantadas`,
+      label: `${diferencia} ${diferencia === 1 ? "adelantada" : "adelantadas"}`,
       className: "text-blue-700",
     };
   }
