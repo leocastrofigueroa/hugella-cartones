@@ -463,6 +463,25 @@ export default function AdminDashboard({ email }: { email: string }) {
                   </Link>
                 </div>
               </div>
+
+              <div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--hugella-navy-secondary)]">
+                  Ayuda
+                </p>
+
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    href="/admin/ayuda"
+                    aria-disabled={disabled}
+                    onClick={(event) => {
+                      if (disabled) event.preventDefault();
+                    }}
+                    className={`inline-flex min-h-12 items-center rounded-lg border px-5 py-3 font-semibold ${focusStyle}`}
+                  >
+                    Guía de usuario
+                  </Link>
+                </div>
+              </div>
             </nav>
 
             <p className="section-kicker">Gestión de cobranzas</p><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Créditos y pagos</h1><p className="mt-2 text-sm text-[var(--hugella-navy-secondary)]">Buscá un crédito, revisá sus cuotas y registrá un pago.</p></div>
