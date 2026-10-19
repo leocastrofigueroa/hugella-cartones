@@ -50,6 +50,12 @@ function estadoLabel(estado: string) {
   return estado === "AL DIA" ? "AL DÍA" : estado;
 }
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  }).format(new Date(`${value}T12:00:00-03:00`));
+}
+
 function situacionCuotas(credito: CreditoListado) {
   const diferencia =
     credito.cuotas_pagadas - credito.cuotas_deberia_llevar;
@@ -118,12 +124,13 @@ export default async function CreditosPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1250px] text-left text-sm">
+          <table className="w-full min-w-[1350px] text-left text-sm">
             <thead>
               <tr className="border-b">
                 <th className="py-3 pr-4">ID</th>
                 <th className="py-3 pr-4">Cliente</th>
                 <th className="py-3 pr-4">Producto</th>
+                <th className="py-3 pr-4">Fecha inicio</th>
                 <th className="py-3 pr-4 text-right">Monto diario</th>
                 <th className="py-3 pr-4 text-right">Cuotas</th>
                 <th className="py-3 pr-4 text-right">Pagadas</th>
@@ -155,6 +162,10 @@ export default async function CreditosPage() {
 
                   <td className="py-3 pr-4">
                     {credito.producto}
+                  </td>
+
+                  <td className="py-3 pr-4 whitespace-nowrap">
+                    {formatDate(credito.fecha_inicio)}
                   </td>
 
                   <td className="py-3 pr-4 text-right font-semibold">
