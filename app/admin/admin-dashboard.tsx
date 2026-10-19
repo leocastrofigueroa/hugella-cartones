@@ -472,6 +472,17 @@ export default function AdminDashboard({ email }: { email: string }) {
                   >
                     Honorarios y retiros
                   </Link>
+
+                  <Link
+                    href="/admin/cobertura-financiera"
+                    aria-disabled={disabled}
+                    onClick={(event) => {
+                      if (disabled) event.preventDefault();
+                    }}
+                    className={`inline-flex min-h-12 items-center rounded-lg border px-5 py-3 font-semibold ${focusStyle}`}
+                  >
+                    Cobertura financiera
+                  </Link>
                 </div>
               </div>
 
