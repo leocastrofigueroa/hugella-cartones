@@ -50,6 +50,30 @@ function estadoLabel(estado: string) {
   return estado === "AL DIA" ? "AL DÍA" : estado;
 }
 
+function situacionCuotas(credito: CreditoListado) {
+  const diferencia =
+    credito.cuotas_pagadas - credito.cuotas_deberia_llevar;
+
+  if (diferencia < 0) {
+    return {
+      label: `${Math.abs(diferencia)} atrasadas`,
+      className: "text-red-700",
+    };
+  }
+
+  if (diferencia > 0) {
+    return {
+      label: `${diferencia} adelantadas`,
+      className: "text-blue-700",
+    };
+  }
+
+  return {
+    label: "Al día",
+    className: "text-green-700",
+  };
+}
+
 export default async function CreditosPage() {
   const supabase = await createClient();
 
@@ -102,7 +126,7 @@ export default async function CreditosPage() {
                 <th className="py-3 pr-4 text-right">Cuotas</th>
                 <th className="py-3 pr-4 text-right">Pagadas</th>
                 <th className="py-3 pr-4 text-right">Debería llevar</th>
-                <th className="py-3 pr-4 text-right">Atrasadas</th>
+                <th className="py-3 pr-4 text-right">Situación</th>
                 <th className="py-3 pr-4 text-right">Importe atrasado</th>
                 <th className="py-3 text-right">Estado</th>
               </tr>
@@ -148,7 +172,15 @@ export default async function CreditosPage() {
                   </td>
 
                   <td className="py-3 pr-4 text-right font-semibold">
-                    {credito.cuotas_atrasadas}
+                    {(() => {
+                      const situacion = situacionCuotas(credito);
+
+                      return (
+                        <span className={situacion.className}>
+                          {situacion.label}
+                        </span>
+                      );
+                    })()}
                   </td>
 
                   <td className="py-3 pr-4 text-right font-semibold">
