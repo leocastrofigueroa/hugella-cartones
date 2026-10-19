@@ -3,11 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import CreditResults from "../credit-results";
-import {
-  buttonStyle,
-  cardStyle,
-  inputStyle,
-} from "./purchase-types";
+import { buttonStyle, cardStyle, inputStyle } from "./purchase-types";
 import type { Credit } from "../admin-types";
 
 export type PurchaseCreditMode = "NONE" | "EXISTING" | "NEW";
@@ -39,9 +35,7 @@ export default function PurchaseCreditAssociation({
     setResults([]);
     onCreditChange(null);
 
-    if (!normalized) {
-      return;
-    }
+    if (!normalized) return;
 
     setSearching(true);
 
@@ -84,25 +78,33 @@ export default function PurchaseCreditAssociation({
     onModeChange(nextMode);
   }
 
-  return (
-    <section className={`${cardStyle} space-y-5`}>
-      <div>
-        <h2 className="text-xl font-semibold">
-          Asociación con crédito
-        </h2>
+  function optionClass(active: boolean) {
+    return [
+      "grid cursor-pointer grid-cols-[auto_1fr] items-start gap-3 rounded-xl border p-4 transition",
+      active
+        ? "border-[var(--hugella-navy)] bg-slate-50"
+        : "border-[var(--hugella-border)] bg-white hover:bg-slate-50",
+      disabled ? "cursor-not-allowed opacity-60" : "",
+    ].join(" ");
+  }
 
-        <p className="mt-1 text-sm text-slate-600">
-          Podés dejar la compra sin asociar, vincularla a un crédito existente
-          o crear un crédito nuevo después de registrar la compra.
+  const radioClass =
+    "!mt-1 !h-5 !w-5 !min-h-0 !min-w-0 shrink-0 accent-[var(--hugella-navy)]";
+
+  return (
+    <section className={`${cardStyle} space-y-4`}>
+      <div>
+        <h2 className="text-xl font-semibold">Asociación con crédito</h2>
+
+        <p className="mt-1 text-sm text-[var(--hugella-navy-secondary)]">
+          Elegí qué querés hacer con esta compra de mercadería.
         </p>
       </div>
 
-      <fieldset
-        disabled={disabled}
-        className="grid gap-3"
-      >
-        <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border p-4">
+      <fieldset disabled={disabled} className="grid gap-3">
+        <label className={optionClass(mode === "NONE")}>
           <input
+            className={radioClass}
             type="radio"
             name="purchase-credit-mode"
             value="NONE"
@@ -110,16 +112,17 @@ export default function PurchaseCreditAssociation({
             onChange={() => changeMode("NONE")}
           />
 
-          <span>
+          <span className="min-w-0">
             <strong className="block">No asociar ahora</strong>
-            <span className="text-sm text-slate-600">
+            <span className="mt-1 block text-sm text-[var(--hugella-navy-secondary)]">
               La compra se registra normalmente y puede asociarse después.
             </span>
           </span>
         </label>
 
-        <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border p-4">
+        <label className={optionClass(mode === "EXISTING")}>
           <input
+            className={radioClass}
             type="radio"
             name="purchase-credit-mode"
             value="EXISTING"
@@ -127,18 +130,17 @@ export default function PurchaseCreditAssociation({
             onChange={() => changeMode("EXISTING")}
           />
 
-          <span>
-            <strong className="block">
-              Asociar a crédito existente
-            </strong>
-            <span className="text-sm text-slate-600">
+          <span className="min-w-0">
+            <strong className="block">Asociar a crédito existente</strong>
+            <span className="mt-1 block text-sm text-[var(--hugella-navy-secondary)]">
               Buscá el crédito y vinculá esta compra al mismo.
             </span>
           </span>
         </label>
 
-        <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border p-4">
+        <label className={optionClass(mode === "NEW")}>
           <input
+            className={radioClass}
             type="radio"
             name="purchase-credit-mode"
             value="NEW"
@@ -146,11 +148,11 @@ export default function PurchaseCreditAssociation({
             onChange={() => changeMode("NEW")}
           />
 
-          <span>
+          <span className="min-w-0">
             <strong className="block">
               Crear crédito nuevo con esta compra
             </strong>
-            <span className="text-sm text-slate-600">
+            <span className="mt-1 block text-sm text-[var(--hugella-navy-secondary)]">
               Después de registrar la compra iremos a Nuevo crédito con el
               producto y la inversión precargados.
             </span>
@@ -159,12 +161,10 @@ export default function PurchaseCreditAssociation({
       </fieldset>
 
       {mode === "EXISTING" && (
-        <div className="space-y-4 rounded-lg border bg-slate-50 p-4">
+        <div className="space-y-4 rounded-xl border border-[var(--hugella-border)] bg-slate-50 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="min-w-0 flex-1">
-              <span className="font-semibold">
-                Buscar crédito
-              </span>
+              <span className="field-label">Buscar crédito</span>
 
               <input
                 className={inputStyle}
@@ -215,9 +215,7 @@ export default function PurchaseCreditAssociation({
                 Crédito seleccionado: {selectedCredit.codigo_credito}
               </p>
               <p>{selectedCredit.nombre_cliente}</p>
-              <p className="text-sm">
-                {selectedCredit.producto}
-              </p>
+              <p className="text-sm">{selectedCredit.producto}</p>
             </div>
           )}
         </div>
@@ -229,8 +227,8 @@ export default function PurchaseCreditAssociation({
             Primero se registrará la compra.
           </p>
           <p className="mt-1 text-sm">
-            Luego te llevaremos al alta de crédito usando los datos reales de
-            esta compra.
+            Luego continuaremos con el alta del crédito usando los datos reales
+            de esta compra.
           </p>
         </div>
       )}
