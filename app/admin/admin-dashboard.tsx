@@ -461,6 +461,17 @@ export default function AdminDashboard({ email }: { email: string }) {
                   >
                     Proyección mensual
                   </Link>
+
+                  <Link
+                    href="/admin/honorarios"
+                    aria-disabled={disabled}
+                    onClick={(event) => {
+                      if (disabled) event.preventDefault();
+                    }}
+                    className={`inline-flex min-h-12 items-center rounded-lg border px-5 py-3 font-semibold ${focusStyle}`}
+                  >
+                    Honorarios y retiros
+                  </Link>
                 </div>
               </div>
 
