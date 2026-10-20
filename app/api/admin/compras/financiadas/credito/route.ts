@@ -105,8 +105,7 @@ export async function POST(request: Request) {
 
       return json(
         {
-          error:
-            "No se pudo confirmar la compra y su asociación. Reintentá la misma solicitud.",
+            error: `Error ${result.error.code}: ${result.error.message}`,
         },
         502
       );
