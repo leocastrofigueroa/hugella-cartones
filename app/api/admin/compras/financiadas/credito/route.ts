@@ -78,10 +78,12 @@ export async function POST(request: Request) {
     );
 
     if (result.error) {
-      console.error(
-        "Compra financiada + crédito RPC",
-        result.error.code
-      );
+      console.error("Compra financiada + crédito RPC", {
+        code: result.error.code,
+        message: result.error.message,
+        details: result.error.details,
+        hint: result.error.hint,
+    });
 
       if (result.error.code === "42501") {
         return json(
