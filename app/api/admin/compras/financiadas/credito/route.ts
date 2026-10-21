@@ -83,7 +83,7 @@ export async function POST(request: Request) {
         message: result.error.message,
         details: result.error.details,
         hint: result.error.hint,
-    });
+      });
 
       if (result.error.code === "42501") {
         return json(
@@ -105,7 +105,8 @@ export async function POST(request: Request) {
 
       return json(
         {
-            error: `Error ${result.error.code}: ${result.error.message}`,
+          error:
+            "No se pudo confirmar la compra y su asociación. Reintentá la misma solicitud.",
         },
         502
       );
