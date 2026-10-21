@@ -20,6 +20,36 @@ const sections = [
     ),
   },
   {
+    title: "Acceso y recuperación de contraseña",
+    content: (
+      <>
+        <p>
+          El acceso al panel administrativo requiere una cuenta autorizada de
+          HUGELLA.
+        </p>
+
+        <ol className="mt-3 list-decimal space-y-2 pl-5">
+          <li>Ingresá tu correo y contraseña en la pantalla de acceso.</li>
+          <li>
+            Si olvidaste la contraseña, utilizá la opción{" "}
+            <strong>Olvidé mi contraseña</strong>.
+          </li>
+          <li>
+            Revisá el correo recibido y abrí el enlace de recuperación.
+          </li>
+          <li>
+            Ingresá la nueva contraseña y confirmala antes de volver al panel.
+          </li>
+        </ol>
+
+        <p className="mt-3 font-semibold">
+          Utilizá únicamente el enlace de recuperación más reciente que hayas
+          solicitado.
+        </p>
+      </>
+    ),
+  },
+  {
     title: "Nuevo crédito",
     content: (
       <>
@@ -28,22 +58,54 @@ const sections = [
           un cliente.
         </p>
 
+        <p className="mt-3">
+          Al comenzar, elegí si vas a utilizar un{" "}
+          <strong>cliente existente</strong> o registrar un{" "}
+          <strong>cliente nuevo</strong>.
+        </p>
+
+        <div className="mt-3 space-y-3">
+          <div className="rounded-lg border border-[var(--hugella-border)] bg-slate-50 p-4">
+            <p className="font-semibold">Cliente existente</p>
+
+            <p className="mt-1">
+              Podés buscarlo escribiendo parte de su nombre, apellido o DNI.
+              No es necesario escribir el nombre completo.
+            </p>
+
+            <p className="mt-1">
+              El sistema mostrará coincidencias y deberás seleccionar a la
+              persona correcta antes de continuar.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-[var(--hugella-border)] bg-slate-50 p-4">
+            <p className="font-semibold">Cliente nuevo</p>
+
+            <p className="mt-1">
+              Ingresá primero el DNI para verificar que todavía no exista en el
+              sistema.
+            </p>
+
+            <p className="mt-1">
+              Si el DNI está disponible, completá sus datos personales y
+              continuá con el crédito.
+            </p>
+          </div>
+        </div>
+
         <ol className="mt-3 list-decimal space-y-2 pl-5">
-          <li>Ingresá el DNI del cliente.</li>
-          <li>Buscá el cliente antes de continuar.</li>
-          <li>
-            Si ya existe, verificá que sus datos correspondan a la persona
-            correcta.
-          </li>
-          <li>
-            Si es un cliente nuevo, completá los datos solicitados.
-          </li>
-          <li>Ingresá producto, fecha de inicio, cuotas y valor de cuota.</li>
+          <li>Elegí Cliente existente o Cliente nuevo.</li>
+          <li>Seleccioná o registrá correctamente al cliente.</li>
+          <li>Ingresá producto y fecha de entrega.</li>
+          <li>Ingresá cantidad de cuotas y valor de cuota.</li>
+          <li>Ingresá la inversión o costo de HUGELLA.</li>
           <li>Revisá el resumen antes de confirmar.</li>
         </ol>
 
         <p className="mt-3 font-semibold">
-          Importante: no crear dos clientes distintos para la misma persona.
+          Importante: si una persona ya está registrada, utilizá siempre su
+          cliente existente. No crees un segundo cliente para la misma persona.
         </p>
       </>
     ),
@@ -87,6 +149,44 @@ const sections = [
     ),
   },
   {
+    title: "Cartón del cliente",
+    content: (
+      <>
+        <p>
+          El cartón permite que el cliente consulte su crédito, cuotas,
+          situación e historial de pagos.
+        </p>
+
+        <div className="mt-3 space-y-2">
+          <p>
+            <strong>ATRASADO:</strong> el cartón indica cuántas cuotas debería
+            tener pagadas y cuántas cuotas se encuentra atrasado.
+          </p>
+
+          <p>
+            <strong>AL DÍA:</strong> significa que tiene exactamente la cantidad
+            de cuotas exigibles a la fecha.
+          </p>
+
+          <p>
+            <strong>ADELANTADO:</strong> indica cuántas cuotas lleva pagadas por
+            encima de las que correspondían hasta ese día.
+          </p>
+
+          <p>
+            <strong>CANCELADO:</strong> el plan fue abonado completamente.
+          </p>
+        </div>
+
+        <p className="mt-3">
+          Para los créditos diarios de HUGELLA, los domingos no cuentan como
+          día de cuota. La fecha de entrega corresponde a la primera cuota del
+          plan.
+        </p>
+      </>
+    ),
+  },
+  {
     title: "Créditos y pagos",
     content: (
       <>
@@ -123,6 +223,12 @@ const sections = [
           créditos relacionados.
         </p>
 
+        <p className="mt-3">
+          Cuando un cliente ya registrado compra nuevamente, puede conservar el
+          mismo registro de cliente y tener varios créditos diferentes
+          asociados.
+        </p>
+
         <p className="mt-3 font-semibold">
           Antes de modificar DNI, teléfono, domicilio u otros datos, verificá
           que estés en la ficha de la persona correcta.
@@ -156,14 +262,43 @@ const sections = [
         </p>
 
         <p className="mt-3">
-          Una compra de mercadería puede quedar sin asociar inicialmente,
-          asociarse a un crédito existente o utilizarse para crear un crédito
-          nuevo.
+          Cuando se registra una compra de mercadería, existen tres formas de
+          relacionarla con los créditos.
         </p>
 
+        <div className="mt-3 space-y-3">
+          <div className="rounded-lg border border-[var(--hugella-border)] bg-slate-50 p-4">
+            <p className="font-semibold">Sin asociar</p>
+            <p className="mt-1">
+              Utilizá esta opción si todavía no sabés a qué venta o crédito
+              corresponderá esa mercadería.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-[var(--hugella-border)] bg-slate-50 p-4">
+            <p className="font-semibold">Crédito existente</p>
+            <p className="mt-1">
+              Permite asociar directamente la compra a un crédito que ya está
+              registrado en HUGELLA.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-[var(--hugella-border)] bg-slate-50 p-4">
+            <p className="font-semibold">Crear crédito nuevo</p>
+            <p className="mt-1">
+              Registrá primero la compra y luego continuá con el alta de un
+              crédito nuevo utilizando los datos reales de esa compra.
+            </p>
+            <p className="mt-1">
+              El crédito nuevo puede corresponder tanto a un cliente existente
+              como a un cliente nuevo.
+            </p>
+          </div>
+        </div>
+
         <p className="mt-3 font-semibold">
-          Revisá proveedor, productos, importes y forma de pago antes de
-          confirmar una compra.
+          Revisá proveedor, productos, importes, forma de pago y relación con el
+          crédito antes de confirmar una compra.
         </p>
       </>
     ),
@@ -400,8 +535,19 @@ const sections = [
           </p>
 
           <p>
-            <strong>Cliente duplicado:</strong> buscá siempre por DNI antes de
+            <strong>Cliente nuevo:</strong> verificá siempre el DNI antes de
             crear una nueva persona.
+          </p>
+
+          <p>
+            <strong>Cliente existente:</strong> buscá por nombre, apellido o DNI
+            y asegurate de seleccionar a la persona correcta antes de crear un
+            nuevo crédito.
+          </p>
+
+          <p>
+            <strong>Cliente con varios créditos:</strong> no crees un nuevo
+            cliente. Utilizá el mismo cliente y registrá un crédito nuevo.
           </p>
 
           <p>
