@@ -16,6 +16,22 @@ export default function ResetPasswordForm() {
     let cancelled = false;
 
     async function prepareRecovery() {
+      const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+if (cancelled) return;
+
+if (session?.user) {
+  window.history.replaceState(
+    {},
+    document.title,
+    "/reset-password",
+  );
+
+  setReady(true);
+  return;
+}
       const url = new URL(window.location.href);
 
       const code = url.searchParams.get("code");
