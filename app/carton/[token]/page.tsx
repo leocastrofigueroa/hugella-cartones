@@ -22,6 +22,10 @@ type PublicCredit = {
   estado: string;
   cuotas_pagadas: number;
   cuotas_pendientes: number;
+  cuotas_exigibles: number;
+  diferencia_cuotas: number;
+  cuotas_atrasadas: number;
+  cuotas_adelantadas: number;
   pagos: PublicPayment[];
 };
 
@@ -49,6 +53,10 @@ function isPublicCredit(value: unknown): value is PublicCredit {
     && typeof credit.cantidad_cuotas === "number"
     && typeof credit.cuotas_pagadas === "number"
     && typeof credit.cuotas_pendientes === "number"
+    && typeof credit.cuotas_exigibles === "number"
+    && typeof credit.diferencia_cuotas === "number"
+    && typeof credit.cuotas_atrasadas === "number"
+    && typeof credit.cuotas_adelantadas === "number"
     && typeof credit.estado === "string"
     && Array.isArray(credit.pagos);
 }
@@ -108,7 +116,37 @@ export default async function PublicCreditPage({ params }: PageProps<"/carton/[t
         <section className="credit-card relative overflow-hidden rounded-[var(--hugella-radius-card)] bg-[var(--hugella-navy)] p-6 text-white shadow-[0_3px_10px_rgb(6_31_53/0.08)] sm:p-9">
           <div className="relative z-10 grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
             <div>
-              <div className="mb-8 flex items-start justify-between gap-4"><div><p className="text-sm text-white/55">Producto</p><h2 className="mt-1 text-xl font-semibold sm:text-2xl">{credit.producto}</h2></div><CreditStatus status={credit.estado} /></div>
+              <div className="mb-8 flex items-start justify-between gap-4"><div><p className="text-sm text-white/55">Producto</p><h2 className="mt-1 text-xl font-semibold sm:text-2xl">{credit.producto}</h2></div><div className="text-right">
+  <CreditStatus status={credit.estado} />
+
+  {credit.estado === "ATRASADO" && credit.cuotas_atrasadas > 0 && (
+    <p className="mt-2 text-sm font-semibold text-red-200">
+      {credit.cuotas_atrasadas === 1
+        ? "1 cuota atrasada"
+        : `${credit.cuotas_atrasadas} cuotas atrasadas`}
+    </p>
+  )}
+
+  {credit.estado === "ADELANTADO" && credit.cuotas_adelantadas > 0 && (
+    <p className="mt-2 text-sm font-semibold text-green-200">
+      {credit.cuotas_adelantadas === 1
+        ? "1 cuota adelantada"
+        : `${credit.cuotas_adelantadas} cuotas adelantadas`}
+    </p>
+  )}
+
+  {credit.estado === "AL DIA" && (
+    <p className="mt-2 text-sm font-semibold text-white/75">
+      Tu plan está al día
+    </p>
+  )}
+
+  {credit.estado === "CANCELADO" && (
+    <p className="mt-2 text-sm font-semibold text-white/75">
+      Plan cancelado
+    </p>
+  )}
+</div></div>
               <p className="text-sm text-white/55">Cuota diaria</p><p className="mt-1 text-4xl font-bold tracking-tight text-[var(--hugella-gold-light)] sm:text-5xl">{money.format(Number(credit.importe_cuota))}</p>
               <div className="mt-7"><div className="mb-2 flex justify-between text-sm"><span className="text-white/65">Progreso del plan</span><span className="font-semibold">{credit.cuotas_pagadas} de {credit.cantidad_cuotas} cuotas</span></div><div className="h-2 overflow-hidden rounded-[2px] bg-white/10"><div className="h-full rounded-[2px] bg-[linear-gradient(90deg,var(--hugella-gold-dark),var(--hugella-gold-light))]" style={{ width: `${progress}%` }} /></div></div>
             </div>
