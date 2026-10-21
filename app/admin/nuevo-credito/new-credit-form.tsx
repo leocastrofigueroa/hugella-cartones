@@ -32,6 +32,7 @@ export default function NewCreditForm({
   >(initialClient ? "existing" : "idle");
 
   const [client, setClient] = useState<AdminClient | null>(initialClient);
+  const [clientMode, setClientMode] = useState<"existing" | "new">("existing");
   const [fields, setFields] = useState({
     nombre: "",
     telefono: "",
@@ -74,9 +75,32 @@ export default function NewCreditForm({
       const body = await response.json();
       if (version !== searchVersion.current) return;
       if (!response.ok || !body || !("client" in body)) throw new Error();
-      if (body.client === null) { setLookup("new"); setFields(old => ({ ...old, nombre: "", telefono: "", domicilio: "", ubicacion: "" })); }
-      else if (isAdminClient(body.client) && normalizeDni(body.client.dni) === dni) { setClient(body.client); setLookup("existing"); }
-      else throw new Error();
+      if (body.client === null) {
+        if (clientMode === "existing") {
+          setLookup("idle");
+          setError("No encontramos un cliente registrado con ese DNI. Si es un cliente nuevo, elegí «Cliente nuevo».");
+          return;
+        }
+
+        setLookup("new");
+        setFields(old => ({ ...old, nombre: "", telefono: "", domicilio: "", ubicacion: "" }));
+        return;
+      }
+
+      if (isAdminClient(body.client) && normalizeDni(body.client.dni) === dni) {
+        if (clientMode === "new") {
+          setClient(null);
+          setLookup("idle");
+          setError(`Ese DNI ya pertenece a ${body.client.nombre}. Elegí «Cliente existente» para crearle otro crédito.`);
+          return;
+        }
+
+        setClient(body.client);
+        setLookup("existing");
+        return;
+      }
+
+      throw new Error();
     } catch {
       if (version === searchVersion.current) { setLookup("error"); setError("No pudimos buscar al cliente. Revisá tu sesión y reintentá."); }
     }
@@ -175,9 +199,60 @@ export default function NewCreditForm({
     {error && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">{error}</p>}
     {phase === "editing" && <>
       {!initialClient && (
+        <div className={card}>
+          <div>
+            <h2 className="text-xl font-bold">¿Qué querés hacer?</h2>
+            <p className="mt-1 text-sm text-[var(--hugella-navy-secondary)]">
+              Elegí si vas a usar un cliente ya registrado o cargar uno nuevo.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              className={`min-h-12 rounded-lg border px-5 py-3 font-semibold ${
+                clientMode === "existing"
+                  ? "border-[var(--hugella-navy)] bg-[var(--hugella-navy)] text-white"
+                  : "border-[var(--hugella-border)] bg-white text-[var(--hugella-navy)]"
+              }`}
+              onClick={() => {
+                searchVersion.current++;
+                setClientMode("existing");
+                setLookup("idle");
+                setClient(null);
+                setDni("");
+                setError("");
+              }}
+            >
+              Cliente existente
+            </button>
+
+            <button
+              type="button"
+              className={`min-h-12 rounded-lg border px-5 py-3 font-semibold ${
+                clientMode === "new"
+                  ? "border-[var(--hugella-navy)] bg-[var(--hugella-navy)] text-white"
+                  : "border-[var(--hugella-border)] bg-white text-[var(--hugella-navy)]"
+              }`}
+              onClick={() => {
+                searchVersion.current++;
+                setClientMode("new");
+                setLookup("idle");
+                setClient(null);
+                setDni("");
+                setError("");
+              }}
+            >
+              Cliente nuevo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!initialClient && (
         <form id="client-search-form" onSubmit={search} className={card}>
           <label className="block">
-            <span className="field-label">DNI del cliente</span>
+            <span className="field-label">{clientMode === "existing" ? "DNI del cliente existente" : "DNI del cliente nuevo"}</span>
             <input
               name="dni"
               className="field-control"
@@ -190,16 +265,20 @@ export default function NewCreditForm({
           </label>
 
           <button className={button} disabled={lookup === "loading"}>
-            Buscar cliente
+            {lookup === "loading"
+              ? "Buscando…"
+              : clientMode === "existing"
+                ? "Buscar cliente"
+                : "Verificar DNI"}
           </button>
 
           <p role="status" aria-live="polite">
             {lookup === "loading"
               ? "Buscando cliente…"
               : lookup === "new"
-                ? "El DNI no está registrado. Cargá los datos del cliente nuevo."
+                ? "El DNI está disponible. Completá los datos del cliente nuevo."
                 : lookup === "existing"
-                  ? "Cliente encontrado. Sus datos se conservarán."
+                  ? "Cliente encontrado. Este nuevo crédito quedará asociado al mismo cliente."
                   : ""}
           </p>
         </form>
