@@ -73,9 +73,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      typeof creditInput.p_dni === "string"
-    ) {
+    if (typeof creditInput.p_dni === "string") {
       creditInput.p_dni = normalizeDni(creditInput.p_dni);
     }
 
@@ -193,7 +191,18 @@ export async function POST(request: Request) {
         );
       }
 
-      return uncertain();
+      console.error("ERROR crear_credito_desde_compra_admin", {
+        code: result.error.code,
+        message: result.error.message,
+        details: result.error.details,
+        hint: result.error.hint,
+      });
+
+      return rejected(
+        `ERROR TEMPORAL: ${result.error.code} - ${result.error.message}`,
+        "DEBUG_DATABASE",
+        500
+      );
     }
 
     if (!Array.isArray(result.data) || result.data.length !== 1) {
@@ -224,7 +233,8 @@ export async function POST(request: Request) {
       },
       row.ya_procesada ? 200 : 201
     );
-  } catch {
+  } catch (error) {
+    console.error("ERROR inesperado desde-compra", error);
     return uncertain();
   }
 }
