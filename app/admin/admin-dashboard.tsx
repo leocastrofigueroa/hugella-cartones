@@ -312,6 +312,70 @@ export default function AdminDashboard({ email }: { email: string }) {
     }
   }
 
+  async function handleCreditEdited() {
+    if (busy.current || !selected) return;
+
+    const credit = selected;
+
+    busy.current = true;
+    setRefreshing(true);
+    setSuccess("");
+    setPaymentError("");
+    setRefreshError("");
+
+    try {
+      const supabase = createClient();
+
+      const { data: refreshed, error: refreshFailure } =
+        await supabase.rpc("buscar_creditos_admin", {
+          p_busqueda: credit.codigo_credito,
+        });
+
+      if (refreshFailure || !Array.isArray(refreshed)) {
+        throw new Error("Credit refresh failed");
+      }
+
+      const updated = (refreshed as Credit[]).find(
+        (item) => item.credito_id === credit.credito_id
+      );
+
+      if (!updated) {
+        throw new Error("Credit missing from refresh");
+      }
+
+      setSelected(updated);
+
+      setResults((current) =>
+        current.map((item) =>
+          item.credito_id === updated.credito_id
+            ? updated
+            : item
+        )
+      );
+
+      setFichaVersion((version) => version + 1);
+
+      setSuccess(
+        `Crédito ${credit.codigo_credito} modificado correctamente.`
+      );
+    } catch {
+      historyRequest.current += 1;
+
+      setSelected(null);
+      setHistory([]);
+      setHistoryStatus("idle");
+      setResults([]);
+      setSearchStatus("idle");
+
+      setRefreshError(
+        "La modificación ya fue guardada, pero no pudimos actualizar la ficha. Volvé a buscar el crédito para ver sus datos actuales. No repitas la modificación."
+      );
+    } finally {
+      setRefreshing(false);
+      busy.current = false;
+    }
+  }
+
   async function signOut() {
     if (busy.current) return;
     const supabase = createClient();
@@ -531,7 +595,15 @@ export default function AdminDashboard({ email }: { email: string }) {
             <div className="grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-2">
               <CreditDetail credit={selected} />
               {!isClosedCredit(selected) && <PaymentForm key={`${selected.credito_id}-${formVersion}`} disabled={disabled} refreshing={refreshing} onPayment={handlePayment} />}
-              <div className="min-w-0 xl:col-span-2"><CreditFullDetail key={selected.credito_id} creditId={selected.credito_id} refreshVersion={fichaVersion} /></div>
+              <div className="min-w-0 xl:col-span-2">
+                <CreditFullDetail
+                  key={selected.credito_id}
+                  creditId={selected.credito_id}
+                  refreshVersion={fichaVersion}
+                  disabled={disabled || refreshing}
+                  onEdited={handleCreditEdited}
+                />
+              </div>
               <CreditClosureForm key={selected.credito_id} credit={selected} disabled={disabled} onClose={handleClosure} />
               <div className="xl:col-span-2"><PaymentHistory status={historyStatus} payments={history} error={historyError} disabled={disabled} onAnnul={handleAnnulment} onCorrect={handleCorrection} /></div>
               <ContractForm credit={selected} />
