@@ -22,6 +22,20 @@ async function listings(label){
  const fields=['periodo_id','orden','fecha_cierre','fecha_vencimiento','total_obligaciones_hugella','total_pagado','saldo','estado'];
  assert.deepEqual(legacy,rows.map(row=>Object.fromEntries(fields.map(k=>[k,row[k]]))));
  ok(label+' / contrato de RPC anterior conservado',true);
+ const coverage=(await db.query('select * from obtener_cobertura_financiera_admin()')).rows;
+ const expected=(await db.query(`select p.fecha_vencimiento,
+ round(sum(p.saldo_a_pagar + coalesce(r.reconocido,0)),2)::numeric objetivo
+ from vw_periodos_tarjetas_financieros p
+ join (select o.periodo_id,sum(o.importe_pagado_real+o.importe_cortado_historico)
+ filter(where c.obligacion_id is null) reconocido
+ from vw_obligaciones_tarjetas_base_financiera o
+ left join cancelaciones_obligaciones_tarjeta c on c.obligacion_id=o.id
+ where not exists(select 1 from anulaciones_compras_gastos a where a.compra_gasto_id=o.compra_id)
+ group by o.periodo_id) r on r.periodo_id=p.periodo_id
+ group by p.fecha_vencimiento order by p.fecha_vencimiento`)).rows;
+ assert.deepEqual(coverage.map(c=>[c.fecha_vencimiento,c.tarjetas_objetivo]),expected.map(e=>[e.fecha_vencimiento,e.objetivo]));
+ ok(label+' / cobertura concilia saldo neto más pagos y cortes por vencimiento',true);
+
 }
 
 async function purchase(n,amount,count=1,period=p1){
@@ -57,11 +71,38 @@ try{
  const migration=read('202610260002_integrar_devoluciones_finanzas');
  await rejects('instalación revierte ante error',()=>db.exec(migration.replace(/commit;\s*$/,'select 1/0; commit;')));
  await db.exec('rollback');ok('rollback no deja RPC parcial',await scalar("select to_regprocedure('public.operar_devolucion_compra_admin(uuid,uuid,text,jsonb)') is null"));
+ await rejects('preflight cobertura rechaza dependencia ausente',()=>db.exec(read('202611010001_cobertura_tarjetas_netas')));
+ await db.exec('rollback');
+ ok('preflight fallido no instala cobertura',await scalar("select to_regprocedure('public.obtener_cobertura_financiera_admin()') is null"));
  await db.exec(migration);
  // Dependencias de cobranzas vacías y sintéticas; se ejecuta la RPC real de proyección sin cambios.
  await db.exec(`create table creditos(id uuid primary key,codigo text);create table pagos(credito_id uuid,fecha_pago date,importe numeric,estado text);
  create view vw_proyeccion_cobranza_mensual as select null::date mes,0::numeric recaudacion_programada where false;`);
  await db.exec(read('202610160009_proyeccion_mensual_financiera'));
+ await db.exec(`create table honorarios_retiros(id uuid,fecha date,importe numeric);
+ create table anulaciones_honorarios_retiros(honorario_retiro_id uuid);
+ create function hugella_fecha_comercial() returns date language sql stable as $$select date '2026-11-15'$$;
+ insert into creditos values('${id(800)}','SINTETICO');
+ insert into pagos values('${id(800)}','2026-10-01',500,'VALIDO');`);
+ await db.exec(read('202610190006_cobertura_financiera'));
+ const oldCoverage=(await db.query('select * from obtener_cobertura_financiera_admin()')).rows;
+ const coverageCatalog=()=>scalar(`select jsonb_build_object('result',pg_get_function_result(oid),'args',pg_get_function_arguments(oid),'stable',provolatile,'definer',prosecdef,'config',proconfig,'acl',proacl::text,'owner',pg_get_userbyid(proowner)) from pg_proc where oid='public.obtener_cobertura_financiera_admin()'::regprocedure`);
+ const otherFunctions=()=>scalar(`select jsonb_agg(jsonb_build_array(p.oid,pg_get_functiondef(p.oid)) order by p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname<>'obtener_cobertura_financiera_admin' and p.prokind='f'`);
+ const contract=await coverageCatalog(),others=await otherFunctions();
+ const coverageMigration=read('202611010001_cobertura_tarjetas_netas');
+ await rejects('cobertura revierte ante error de instalación',()=>db.exec(coverageMigration.replace(/commit;\s*$/,'select 1/0; commit;')));
+ await db.exec('rollback');
+ assert.deepEqual((await db.query('select * from obtener_cobertura_financiera_admin()')).rows,oldCoverage);
+ ok('rollback de cobertura conserva RPC anterior',true);
+
+ await db.exec(read('202611010001_cobertura_tarjetas_netas'));
+ assert.deepEqual((await db.query('select * from obtener_cobertura_financiera_admin()')).rows,oldCoverage);
+ ok('cobertura sin ajustes conserva contrato e importes anteriores',true);
+ assert.deepEqual(await coverageCatalog(),contract);
+ ok('firma, tipos, seguridad, permisos y propietario compatibles',true);
+ assert.deepEqual(await otherFunctions(),others);
+ ok('migración no reemplaza otras RPC',true);
+
 
  ok('instalación conserva saldo sin devoluciones',(await saldo(p1)).saldo===60);
  await listings('sin devoluciones');
@@ -83,6 +124,16 @@ try{
  ok('saldo a favor pasa a siguiente período',(await saldo(p2)).saldo===170);
  const page=(await db.query('select * from listar_resumenes_tarjeta_financieros_admin($1,1,1)',[card])).rows.map(r=>Object.values(r)[0]);ok('offset no pierde crédito de la página anterior',page.length===1&&page[0].periodo_id===p2&&page[0].saldo===170&&page[0].saldo_a_favor_entrante===20);
  await listings('crédito arrastrado');
+ await db.exec(read('202610190006_cobertura_financiera'));
+ ok('reproduce defecto: RPC anterior ignora crédito acreditado',Number(await scalar("select tarjetas_objetivo from obtener_cobertura_financiera_admin() where fecha_vencimiento='2026-11-20'"))===100);
+ await db.exec(read('202611010001_cobertura_tarjetas_netas'));
+ ok('objetivo neto conserva pago real y aplica crédito una vez',Number(await scalar("select tarjetas_objetivo from obtener_cobertura_financiera_admin() where fecha_vencimiento='2026-11-20'"))===40);
+ ok('crédito excedente reduce sólo siguiente ciclo',Number(await scalar("select tarjetas_objetivo from obtener_cobertura_financiera_admin() where fecha_vencimiento='2026-12-20'"))===170);
+ const cycles=(await db.query('select * from obtener_cobertura_financiera_admin()')).rows;
+ assert.deepEqual(cycles.map(c=>[c.cobrado_ciclo,c.honorarios_retiros]),oldCoverage.map(c=>[c.cobrado_ciclo,c.honorarios_retiros]));
+ ok('cobranzas y honorarios no cambian por la devolución',true);
+ ok('recursión conserva saldo entre ciclos',cycles.every((c,i)=>Number(c.saldo_inicial)===(i?Number(cycles[i-1].saldo_final):0)&&Number(c.saldo_final)===Number(c.disponible_para_tarjetas)-Number(c.tarjetas_objetivo)));
+
  ok('proyección descuenta crédito una sola vez',Number(await scalar("select tarjetas_a_pagar from obtener_proyeccion_mensual_financiera_admin() where mes='2026-12-01'"))===170);
  ok('resúmenes enriquecidos exponen crédito',((await db.query('select * from listar_resumenes_tarjeta_financieros_admin($1,100,0)',[card])).rows.map(r=>Object.values(r)[0])).find(r=>r.periodo_id===p1).saldo_a_favor===20);
 
@@ -129,7 +180,9 @@ try{
  const originalPayment=facts.pagos[0];
  ok('pago real original no se reescribe',JSON.stringify(originalPayment)===JSON.stringify(await scalar('select to_jsonb(p) from pagos_resumenes_tarjetas p where id=$1',[originalPayment.id])));
  await listings('historial completo');
- await db.exec(`set test.uid='${id(999)}'`);await rejects('RPC rechaza no admin',()=>operate(b.id,'DEVOLUCION',{fecha:'2026-10-20',motivo:'X',tramo_id:b.tramo,importe:1}));
+ await db.exec(`set test.uid='${id(999)}'`);
+ await rejects('cobertura exige administrador',()=>db.query('select * from obtener_cobertura_financiera_admin()'));
+ await rejects('RPC rechaza no admin',()=>operate(b.id,'DEVOLUCION',{fecha:'2026-10-20',motivo:'X',tramo_id:b.tramo,importe:1}));
  await db.exec('set role authenticated');await rejects('tablas sin acceso directo',()=>db.exec('select * from devoluciones_tarjetas'));
  console.log(`${checks} grupos OK`);
 }finally{await db.close();}
