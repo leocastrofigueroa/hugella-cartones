@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { secondaryButtonInteractionStyle, cardStyle, money, type PurchaseDetail, type PurchaseRow } from './purchase-types';
+import FinancialActions from './financial-actions';
 import AnnulPurchase from './annul-purchase';
 import ReceiptFiles from './receipt-files';
 import { formatDateAR, formatDateTimeAR } from '@/utils/date-format';
@@ -38,7 +39,7 @@ export default function PurchasesView({ id }: { id?: string }) {
     </>}
     {!loading && !error && detail && <div className="space-y-5">
       <section className={cardStyle}><p className="text-sm">{detail.anulacion?'Registro histórico · ANULADA':documental?'Registro histórico documental':'Registro confirmado'}</p><h2 className="text-xl font-bold">{detail.tipo === 'MERCADERIA' ? 'Mercadería' : 'Gasto'} · {formatDateAR(detail.fecha)}</h2><p>Proveedor: {detail.proveedor.nombre}</p>{detail.proveedor.identificacion_fiscal && <p>Identificación fiscal: {detail.proveedor.identificacion_fiscal}</p>}<p>Moneda: {detail.moneda}</p>{detail.fuente === 'GOOGLE_SHEETS_COMPRAS' && <><p>ID histórico: {detail.id_origen}</p><p>Origen: Google Sheets</p></>}<p>Comprobante: {detail.comprobante || '—'}</p><p className="whitespace-pre-wrap">Observaciones: {detail.observaciones || '—'}</p><p>Registrado: {formatDateTimeAR(detail.created_at)}</p></section>
-      {detail.anulacion ? <section className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-700"><h2 className="font-bold">ANULADA</h2><p className="whitespace-pre-wrap">Motivo: {detail.anulacion.motivo}</p><p>Fecha: {formatDateTimeAR(detail.anulacion.created_at)}</p><p>Actor: {detail.anulacion.actor_id}</p><p className="font-semibold">Saldo operativo pendiente: {money(0,detail.moneda)}</p><p>El historial y los importes originales se conservan. No constituye deuda activa.</p></section> : !documental && <AnnulPurchase key={`anular-${detail.id}`} id={detail.id} onDone={()=>setRevision(r=>r+1)}/> }
+      {detail.anulacion ? <section className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-700"><h2 className="font-bold">ANULADA</h2><p className="whitespace-pre-wrap">Motivo: {detail.anulacion.motivo}</p><p>Fecha: {formatDateTimeAR(detail.anulacion.created_at)}</p><p>Actor: {detail.anulacion.actor_id}</p><p className="font-semibold">Saldo operativo pendiente: {money(0,detail.moneda)}</p><p>El historial y los importes originales se conservan. No constituye deuda activa.</p></section> : !documental && !detail.financiacion?.cancelacion_financiera && !detail.financiacion?.devoluciones?.length && <AnnulPurchase key={`anular-${detail.id}`} id={detail.id} onDone={()=>setRevision(r=>r+1)}/> }
       {detail.evidencia_historica && <section className={cardStyle}>
         <h2 className="text-xl font-semibold">{documental ? 'Financiación histórica sin importe operativo' : 'Financiación histórica operativa'}</h2>
         <p>Tarjeta de la fuente: {detail.evidencia_historica.tarjeta_canonica} ({detail.evidencia_historica.tarjeta_original})</p>
@@ -50,6 +51,7 @@ export default function PurchasesView({ id }: { id?: string }) {
       </section>}
       <section className="space-y-3"><h2 className="text-xl font-semibold">{detail.fuente === 'GOOGLE_SHEETS_COMPRAS' ? 'Resumen histórico' : 'Ítems'}</h2>{detail.items.map(item => <article className={cardStyle} key={item.id}><h3 className="font-semibold">{item.posicion}. {item.descripcion}</h3>{item.modalidad === 'TOTAL_HISTORICO' ? <><p>Cantidad: No registrada en la fuente histórica</p><p>Costo unitario: No registrado en la fuente histórica</p><p className="font-bold">Total histórico: {money(item.total, detail.moneda)}</p></> : <><p>Cantidad: {item.cantidad}</p><p>Costo unitario: {new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(item.costo_unitario)} {detail.moneda}</p><p className="font-bold">Total: {money(item.total, detail.moneda)}</p></>}</article>)}</section>
       <p className="text-2xl font-bold">TOTAL GENERAL: {money(detail.total, detail.moneda)} · {detail.moneda}</p>
+      {detail.financiacion && <FinancialActions key={`finanzas-${detail.id}-${revision}`} id={detail.id} finance={detail.financiacion} onDone={()=>setRevision(r=>r+1)}/>}
       <ReceiptFiles key={detail.id} purchaseId={detail.id}/>
     </div>}
   </>;

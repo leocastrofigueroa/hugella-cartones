@@ -1,0 +1,776 @@
+{
+  "engine": "PostgreSQL 17.11 (Homebrew) on aarch64-apple-darwin27.0.0, compiled by Apple clang version 21.0.0 (clang-2100.3.34.2), 64-bit",
+  "isolation": "private Unix socket; TCP disabled; synthetic data only",
+  "checks": [
+    {
+      "name": "sin TCP y directorio privado",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "migración fallida revierte datos y DDL",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "migración completa sin omitir preflight ni reescribir datos",
+      "passed": true,
+      "details": {
+        "tables": 26,
+        "snapshot": {
+          "pagos": {
+            "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            "count": 0
+          },
+          "creditos": {
+            "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            "count": 0
+          },
+          "proveedores": {
+            "hash": "507eaeb7a96bb8c13ede3c94de88ae8c",
+            "count": 1
+          },
+          "compras_gastos": {
+            "hash": "d04786a9cab1e3ebf45f6a045c7c047d",
+            "count": 5002
+          },
+          "cierres_creditos": {
+            "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            "count": 0
+          },
+          "tarjetas_credito": {
+            "hash": "27a006cafcfb124b4a04a0f609ec91f4",
+            "count": 13
+          },
+          "periodos_tarjetas": {
+            "hash": "33c21a85a306c9c22ad8a3e29d0dbd55",
+            "count": 721
+          },
+          "tramos_pago_compras": {
+            "hash": "ffa9c2ba105a69cd97146d8bf701e2fb",
+            "count": 5001
+          },
+          "items_compras_gastos": {
+            "hash": "4cbe0d98dd0e07bb13b62328775b65f8",
+            "count": 5002
+          },
+          "devoluciones_tarjetas": {
+            "hash": "b80587e5df3202cee2419d4e4e29f7db",
+            "count": 250
+          },
+          "obligaciones_tarjetas": {
+            "hash": "b51005f63b920ff5a6b3ff563349ce76",
+            "count": 60002
+          },
+          "financiaciones_compras": {
+            "hash": "d000ac6e6b6d07009659009d34ba35ef",
+            "count": 5001
+          },
+          "inicios_tramos_tarjeta": {
+            "hash": "a67446fb17512cd0c2990b341f120f8b",
+            "count": 5001
+          },
+          "pagos_resumenes_tarjetas": {
+            "hash": "5b2b879f1d0cc90acc1d0885513938b2",
+            "count": 100
+          },
+          "anulaciones_compras_gastos": {
+            "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            "count": 0
+          },
+          "operaciones_compras_gastos": {
+            "hash": "a0763fe1478b8774ec55d70d956902d8",
+            "count": 2
+          },
+          "comprobantes_compras_gastos": {
+            "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            "count": 0
+          },
+          "operaciones_altas_proveedores": {
+            "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            "count": 0
+          },
+          "aplicaciones_pagos_obligaciones": {
+            "hash": "f7482d2fd13dd5526f90ba2f6cd1eb37",
+            "count": 100
+          },
+          "operaciones_financieras_compras": {
+            "hash": "8d1f0396660ea12c130986b86339fc3b",
+            "count": 5480
+          },
+          "cancelaciones_financieras_compras": {
+            "hash": "9b8262a1fc950a07cb815ed2ac3661c7",
+            "count": 1
+          },
+          "cancelaciones_obligaciones_tarjeta": {
+            "hash": "032dfe7593d10764ce20213c90166306",
+            "count": 1
+          },
+          "cancelaciones_devoluciones_tarjetas": {
+            "hash": "d41d8cd98f00b204e9800998ecf8427e",
+            "count": 0
+          },
+          "acreditaciones_devoluciones_tarjetas": {
+            "hash": "87df2e8e41a1b0d6df64bda1117f1e47",
+            "count": 125
+          },
+          "cortes_historicos_obligaciones_tarjeta": {
+            "hash": "dbee8999bd632ebfc1e0bfb8cd00b590",
+            "count": 1
+          },
+          "evidencias_financiacion_historica_compras": {
+            "hash": "2d4fe67bc5390f301ad14c1ac6e2e252",
+            "count": 2
+          }
+        }
+      }
+    },
+    {
+      "name": "detalle documental previo conservado",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "corte y cancelación previos contabilizados",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "mismo UUID / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39789,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_b457361732c5_a"
+        },
+        {
+          "pid": 39794,
+          "wait": "advisory",
+          "blockers": [
+            39789
+          ],
+          "wait_type": "Lock",
+          "application": "hg_b457361732c5_b"
+        }
+      ]
+    },
+    {
+      "name": "mismo UUID / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 0,
+        "b_error": ""
+      }
+    },
+    {
+      "name": "mismo UUID / misma respuesta",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "pago único idempotente",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "mismo UUID distinto payload / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39810,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_8caa28281be1_a"
+        },
+        {
+          "pid": 39815,
+          "wait": "advisory",
+          "blockers": [
+            39810
+          ],
+          "wait_type": "Lock",
+          "application": "hg_8caa28281be1_b"
+        }
+      ]
+    },
+    {
+      "name": "mismo UUID distinto payload / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 3,
+        "b_error": "ERROR:  22023: Operación utilizada con otro actor o solicitud\nCONTEXT:  PL/pgSQL function public.iniciar_operacion_financiera_compras(uuid,text,jsonb) line 17 at RAISE\nPL/pgSQL function public.registrar_pago_resumen_tarjeta_admin(uuid,uuid,date,numeric,text) line 18 at assignment\nLOCATION:  exec_stmt_raise, pl_exec.c:3911"
+      }
+    },
+    {
+      "name": "UUID no reescribe pago",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "dos sobrepagos / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39831,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_ab4747f5d451_a"
+        },
+        {
+          "pid": 39836,
+          "wait": "advisory",
+          "blockers": [
+            39831
+          ],
+          "wait_type": "Lock",
+          "application": "hg_ab4747f5d451_b"
+        }
+      ]
+    },
+    {
+      "name": "dos sobrepagos / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 3,
+        "b_error": "ERROR:  23514: Pago superior al saldo pendiente del resumen: 20.0000000000000000\nCONTEXT:  PL/pgSQL function public.registrar_pago_resumen_tarjeta_admin(uuid,uuid,date,numeric,text) line 50 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3911"
+      }
+    },
+    {
+      "name": "sin sobrepago",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "dos sobreacreditaciones / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39856,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_19c28a5ae695_a"
+        },
+        {
+          "pid": 39861,
+          "wait": "advisory",
+          "blockers": [
+            39856
+          ],
+          "wait_type": "Lock",
+          "application": "hg_19c28a5ae695_b"
+        }
+      ]
+    },
+    {
+      "name": "dos sobreacreditaciones / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 3,
+        "b_error": "ERROR:  23514: La acreditación excede el importe esperado de la devolución\nCONTEXT:  PL/pgSQL function public.validar_acreditacion_devolucion_tarjeta() line 34 at RAISE\nSQL statement \"insert into public.acreditaciones_devoluciones_tarjetas(devolucion_id,tarjeta_id,periodo_id,operacion_id,fecha_acreditacion,importe,referencia,actor_id)\n      values((p_datos->>'devolucion_id')::uuid,v_tarjeta,(p_datos->>'periodo_id')::uuid,p_operacion_id,v_fecha,\n        (p_datos->>'importe')::numeric,p_datos->>'referencia',auth.uid()) returning id\"\nPL/pgSQL function public.operar_devolucion_compra_admin(uuid,uuid,text,jsonb) line 66 at SQL statement\nLOCATION:  exec_stmt_raise, pl_exec.c:3911"
+      }
+    },
+    {
+      "name": "sin sobreacreditación",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "cancelar antes de pagar / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39884,
+          "wait": "advisory",
+          "blockers": [
+            39879
+          ],
+          "wait_type": "Lock",
+          "application": "hg_1715bf6a2760_b"
+        },
+        {
+          "pid": 39879,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_1715bf6a2760_a"
+        }
+      ]
+    },
+    {
+      "name": "cancelar antes de pagar / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 3,
+        "b_error": "ERROR:  23514: Pago superior al saldo pendiente del resumen: 0\nCONTEXT:  PL/pgSQL function public.registrar_pago_resumen_tarjeta_admin(uuid,uuid,date,numeric,text) line 50 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3911"
+      }
+    },
+    {
+      "name": "cancelada no pagada",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "pagar antes de cancelar / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39902,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_9d56b3c128e3_a"
+        },
+        {
+          "pid": 39907,
+          "wait": "advisory",
+          "blockers": [
+            39902
+          ],
+          "wait_type": "Lock",
+          "application": "hg_9d56b3c128e3_b"
+        }
+      ]
+    },
+    {
+      "name": "pagar antes de cancelar / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 3,
+        "b_error": "ERROR:  23514: Sólo se pueden cancelar cuotas futuras sin pagos ni cortes históricos\nCONTEXT:  PL/pgSQL function public.operar_devolucion_compra_admin(uuid,uuid,text,jsonb) line 34 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3911"
+      }
+    },
+    {
+      "name": "pagada no cancelada",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "esperada antes de cancelar / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39925,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_a936a78fffb4_a"
+        },
+        {
+          "pid": 39930,
+          "wait": "advisory",
+          "blockers": [
+            39925
+          ],
+          "wait_type": "Lock",
+          "application": "hg_a936a78fffb4_b"
+        }
+      ]
+    },
+    {
+      "name": "esperada antes de cancelar / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 3,
+        "b_error": "ERROR:  23514: Cancelación y devoluciones superan el tramo\nCONTEXT:  PL/pgSQL function public.operar_devolucion_compra_admin(uuid,uuid,text,jsonb) line 39 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3911"
+      }
+    },
+    {
+      "name": "esperada no reduce saldo",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "cancelar antes de esperada / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39946,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_4bae581b6d7a_a"
+        },
+        {
+          "pid": 39951,
+          "wait": "advisory",
+          "blockers": [
+            39946
+          ],
+          "wait_type": "Lock",
+          "application": "hg_4bae581b6d7a_b"
+        }
+      ]
+    },
+    {
+      "name": "cancelar antes de esperada / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 3,
+        "b_error": "ERROR:  23514: Devolución inválida o superior al importe no cancelado del tramo\nCONTEXT:  PL/pgSQL function public.operar_devolucion_compra_admin(uuid,uuid,text,jsonb) line 56 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3911"
+      }
+    },
+    {
+      "name": "sin doble descuento",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "pagar antes de acreditar / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39969,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_7242beb22f74_a"
+        },
+        {
+          "pid": 39974,
+          "wait": "advisory",
+          "blockers": [
+            39969
+          ],
+          "wait_type": "Lock",
+          "application": "hg_7242beb22f74_b"
+        }
+      ]
+    },
+    {
+      "name": "pagar antes de acreditar / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 0,
+        "b_error": ""
+      }
+    },
+    {
+      "name": "pagos y crédito conservados",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "acreditar antes de pagar / sesiones y contención reales",
+      "passed": true,
+      "details": [
+        {
+          "pid": 39997,
+          "wait": "advisory",
+          "blockers": [
+            39992
+          ],
+          "wait_type": "Lock",
+          "application": "hg_6275397daf59_b"
+        },
+        {
+          "pid": 39992,
+          "wait": "ClientRead",
+          "blockers": [],
+          "wait_type": "Client",
+          "application": "hg_6275397daf59_a"
+        }
+      ]
+    },
+    {
+      "name": "acreditar antes de pagar / resultados",
+      "passed": true,
+      "details": {
+        "a_status": 0,
+        "b_status": 3,
+        "b_error": "ERROR:  23514: Pago superior al saldo pendiente del resumen: 20.0000000000000000\nCONTEXT:  PL/pgSQL function public.registrar_pago_resumen_tarjeta_admin(uuid,uuid,date,numeric,text) line 50 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3911"
+      }
+    },
+    {
+      "name": "pago toma saldo neto fresco",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "vista interna no expuesta a authenticated",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "conciliación períodos/cuotas",
+      "passed": true,
+      "details": null
+    }
+  ],
+  "benchmarks": [
+    {
+      "name": "baseline listado 60 resumenes",
+      "budget_ms": 2000,
+      "samples": 3,
+      "execution_ms": [
+        122.314,
+        122.028,
+        122.26
+      ],
+      "errors": [],
+      "median_ms": 122.26,
+      "max_ms": 122.314,
+      "planning_ms": [
+        0.038,
+        0.037,
+        0.037
+      ],
+      "buffers": {
+        "Shared Hit Blocks": 49153,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0
+      },
+      "passed": true
+    },
+    {
+      "name": "saldo resumen",
+      "budget_ms": 500,
+      "samples": 5,
+      "execution_ms": [
+        72.828,
+        73.747,
+        75.364,
+        74.07,
+        74.914
+      ],
+      "errors": [],
+      "median_ms": 74.07,
+      "max_ms": 75.364,
+      "planning_ms": [
+        0.028,
+        0.028,
+        0.029,
+        0.029,
+        0.033
+      ],
+      "buffers": {
+        "Shared Hit Blocks": 4195,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 509,
+        "Temp Written Blocks": 510
+      },
+      "passed": true
+    },
+    {
+      "name": "listado 60 resumenes",
+      "budget_ms": 2000,
+      "samples": 5,
+      "execution_ms": [
+        19323.467,
+        21103.409,
+        19430.94,
+        19261.215,
+        19265.616
+      ],
+      "errors": [],
+      "median_ms": 19323.467,
+      "max_ms": 21103.409,
+      "planning_ms": [
+        0.037,
+        0.037,
+        0.037,
+        0.038,
+        0.037
+      ],
+      "buffers": {
+        "Shared Hit Blocks": 669114,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 152700,
+        "Temp Written Blocks": 153000
+      },
+      "passed": false
+    },
+    {
+      "name": "detalle compra",
+      "budget_ms": 1000,
+      "samples": 5,
+      "execution_ms": [
+        331.58,
+        357.053,
+        349.226,
+        322.285,
+        322.936
+      ],
+      "errors": [],
+      "median_ms": 331.58,
+      "max_ms": 357.053,
+      "planning_ms": [
+        0.031,
+        0.031,
+        0.035,
+        0.03,
+        0.03
+      ],
+      "buffers": {
+        "Shared Hit Blocks": 11317,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 2238,
+        "Temp Written Blocks": 2242
+      },
+      "passed": true
+    },
+    {
+      "name": "calendario completo",
+      "budget_ms": 3000,
+      "samples": 5,
+      "execution_ms": [
+        299.363,
+        297.618,
+        297.494,
+        300.582,
+        296.833
+      ],
+      "errors": [],
+      "median_ms": 297.618,
+      "max_ms": 300.582,
+      "planning_ms": [
+        0.038,
+        0.041,
+        0.038,
+        0.037,
+        0.039
+      ],
+      "buffers": {
+        "Shared Hit Blocks": 6494,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 3279,
+        "Temp Written Blocks": 3283
+      },
+      "passed": true
+    },
+    {
+      "name": "proyeccion mensual",
+      "budget_ms": 2000,
+      "samples": 5,
+      "execution_ms": [
+        192.065,
+        190.442,
+        188.842,
+        188.989,
+        190.598
+      ],
+      "errors": [],
+      "median_ms": 190.442,
+      "max_ms": 192.065,
+      "planning_ms": [
+        0.037,
+        0.037,
+        0.037,
+        0.037,
+        0.037
+      ],
+      "buffers": {
+        "Shared Hit Blocks": 6278,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 509,
+        "Temp Written Blocks": 510
+      },
+      "passed": true
+    },
+    {
+      "name": "panel financiero",
+      "budget_ms": 2000,
+      "samples": 5,
+      "execution_ms": [
+        355.22,
+        347.595,
+        348.292,
+        351.796,
+        348.131
+      ],
+      "errors": [],
+      "median_ms": 348.292,
+      "max_ms": 355.22,
+      "planning_ms": [
+        0.03,
+        0.031,
+        0.03,
+        0.03,
+        0.03
+      ],
+      "buffers": {
+        "Shared Hit Blocks": 6212,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 1723,
+        "Temp Written Blocks": 1727
+      },
+      "passed": true
+    }
+  ],
+  "failures": [],
+  "temp_directory": "/private/tmp/hg-final-pg-wwuio83m",
+  "scope": "Rama financiera de tarjetas; cobranzas y créditos ajenos representados con tablas/vistas sintéticas vacías. Baseline relevante instalado sin omitir preflights. No verifica equivalencia del esquema productivo ni latencia HTTP. Volumen de stress supuesto: 5.000 compras en cinco años, sin usar volumen real.",
+  "migration_sha256": "0c5bf1eb7fafb029ec2aa7f3a0bf7df408cac48394b63b7d191979353cd58d1d",
+  "migration_seconds": 0.023461083001166116,
+  "volume": {
+    "pagos": 105,
+    "cortes": 1,
+    "cuotas": 60012,
+    "compras": 5012,
+    "periodos": 731,
+    "tarjetas": 23,
+    "esperadas": 254,
+    "aplicaciones": 105,
+    "documentales": 1,
+    "acreditaciones": 128
+  },
+  "recommendation": "NO PUBLICABLE",
+  "server_stopped": true
+}

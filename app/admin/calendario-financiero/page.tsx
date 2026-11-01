@@ -17,7 +17,7 @@ type Obligacion = {
   periodo_orden: number | null;
   fecha_cierre: string | null;
   fecha_vencimiento: string | null;
-  estado: "PAGADA" | "PENDIENTE" | "SIN_PERIODO" | "ANULADA";
+  estado: "PAGADA" | "PENDIENTE" | "SIN_PERIODO" | "ANULADA" | "CANCELADA";
   compra_anulada: boolean;
 };
 
@@ -87,6 +87,7 @@ export default async function CalendarioFinancieroPage() {
         </p>
       </section>
 
+      <p>Cuotas CANCELADAS: {obligaciones.filter(o => o.estado === "CANCELADA").length}. No representan pagos reales.</p>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <article className="rounded-xl border border-[var(--hugella-border)] bg-white p-5">
           <p className="text-sm text-[var(--hugella-navy-secondary)]">

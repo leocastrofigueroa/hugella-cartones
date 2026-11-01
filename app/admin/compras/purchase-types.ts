@@ -16,6 +16,7 @@ export type HistoricalFinancingEvidence = {
   tratamiento: 'FINANCIACION_HISTORICA_OPERATIVA' | 'FINANCIACION_HISTORICA_SIN_IMPORTE_OPERATIVO';
 };
 export type PurchaseDetail = Omit<PurchaseRow, 'proveedor_nombre'> & {
+  financiacion?: import('./financial-actions').PurchaseFinance;
   proveedor: Supplier; observaciones: string | null; fuente: 'GOOGLE_SHEETS_COMPRAS' | null;
   id_origen: string | null; items: PurchaseDetailItem[]; evidencia_historica?: HistoricalFinancingEvidence | null;
 };

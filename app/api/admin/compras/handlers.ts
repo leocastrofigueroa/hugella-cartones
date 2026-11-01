@@ -41,7 +41,7 @@ export async function handle(request: Request, kind: 'supplier' | 'purchase' | '
     } else if ((kind === 'periods' || kind === 'summaries')) {
       const url = new URL(request.url); const card = url.searchParams.get('tarjeta_id'); const offset = Number(url.searchParams.get('offset') ?? 0);
       if (!card || !uuid.test(card) || !Number.isSafeInteger(offset) || offset < 0) return json({ error: 'Tarjeta o paginación inválida.' }, 422);
-      rpc = kind === 'summaries' ? 'listar_resumenes_tarjeta_admin' : 'listar_periodos_tarjeta_admin'; args = { p_tarjeta_id: card, p_limite: 100, p_offset: offset };
+      rpc = kind === 'summaries' ? (url.searchParams.get('financiero') === '1' ? 'listar_resumenes_tarjeta_financieros_admin' : 'listar_resumenes_tarjeta_admin') : 'listar_periodos_tarjeta_admin'; args = { p_tarjeta_id: card, p_limite: 100, p_offset: offset };
     } else if (kind === 'detail') {
       if (!id || !uuid.test(id)) return json({ error: 'Identificador inválido.' }, 400);
       rpc = 'obtener_compra_gasto_admin'; args = { p_compra_gasto_id: id };
