@@ -38,6 +38,26 @@ async function click(t){await act(async()=>[...document.querySelectorAll('button
 async function set(selector,v){await act(async()=>{const el=document.querySelector(selector);const proto=el.tagName==='SELECT'?dom.window.HTMLSelectElement.prototype:dom.window.HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(el,v);el.dispatchEvent(new dom.window.Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}));});}
 async function submit(){await act(async()=>document.querySelector('form').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));}
 fetchHandler=async(u,o)=>{if(!o?.body)return Response.json({result:[{id:id(8),fecha_cierre:'2027-01-01',fecha_vencimiento:'2027-01-10'}]});calls.push(JSON.parse(o.body));return Response.json({error:'Incierto'},{status:502});};
+// Fixture sintética: dos cierres y una cuota aún sin período; ninguna selección automática.
+const historical={...finance,cuotas:[
+ {...finance.cuotas[0],fecha_cierre:'2026-10-22'},
+ {...finance.cuotas[0],obligacion_id:id(20),numero_cuota:2,fecha_cierre:'2026-11-19'},
+ {...finance.cuotas[0],obligacion_id:id(21),numero_cuota:3,fecha_cierre:null}
+]};
+await mount(historical);await click('Cancelar compra');
+ok('sin fecha explica por qué no hay casillas',document.querySelectorAll('input[type=checkbox]').length===0&&document.body.textContent.includes('Ingresá la fecha de cancelación'));
+await set('input[type=date]','2026-11-01');
+ok('pendiente cerrada excluida; futura y sin período disponibles',document.querySelectorAll('input[type=checkbox]').length===2&&document.body.textContent.includes('cierre 22/10/2026 anterior o igual')&&document.body.textContent.includes('Sin período asignado'));
+ok('cuotas disponibles requieren confirmación explícita',![...document.querySelectorAll('input[type=checkbox]')].some(q=>q.checked)&&calls.length===0);
+await act(async()=>document.querySelector('input[type=checkbox]').click());
+await set('input[type=date]','2026-11-19');
+ok('cierre igual excluido y cambio de fecha limpia selección',document.querySelectorAll('input[type=checkbox]').length===1&&!document.querySelector('input[type=checkbox]').checked);
+await mount({...historical,cuotas:historical.cuotas.slice(0,2)});await click('Cancelar compra');await set('input[type=date]','2026-12-01');
+ok('sin cuotas elegibles muestra motivo y mensaje',document.querySelectorAll('input[type=checkbox]').length===0&&document.body.textContent.includes('No hay cuotas elegibles'));
+await mount();await click('Cancelar compra');await set('input[type=date]','2026-12-01');
+ok('pagos reales y corte permanecen excluidos y explicados',document.querySelectorAll('input[type=checkbox]').length===1&&document.body.textContent.includes('registra pagos'));
+await mount({...finance,cuotas:[{...finance.cuotas[0],total_aplicado:0,importe_corte_historico:10}]});await click('Cancelar compra');await set('input[type=date]','2026-12-01');
+ok('corte histórico conserva exclusión',document.querySelectorAll('input[type=checkbox]').length===0&&document.body.textContent.includes('registra un corte histórico'));
 await mount();ok('muestra pagos y expectativa separada',document.body.textContent.includes('Pagos reales')&&document.body.textContent.includes('Esperada:')&&document.body.textContent.includes('Acreditada:'));
 await click('Cancelar compra');await set('input[type=date]','2026-12-01');await set('input[maxlength="1000"]','Fixture');ok('sólo cuota futura sin pagos ni corte',document.querySelectorAll('input[type=checkbox]').length===1);
 await act(async()=>document.querySelector('input[type=checkbox]').click());await submit();ok('cancelación explícita de cuotas',calls[0].p_accion==='CANCELAR'&&calls[0].p_datos.obligaciones[0]===id(5));ok('resultado incierto congela datos',document.querySelector('fieldset').disabled);await submit();ok('reintento mismo UUID y payload',JSON.stringify(calls[0])===JSON.stringify(calls[1]));
